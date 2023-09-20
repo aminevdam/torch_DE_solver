@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import torch
 import numpy as np
-from copy import copy
+from copy import copy, deepcopy
 from typing import Tuple, Union
 
 from tedeous.points_type import Points_type
@@ -22,7 +22,7 @@ class Solution():
     """
     def __init__(self, grid: torch.Tensor, equal_cls: Union[Equation_NN, Equation_mat, Equation_autograd],
                  model: Union[torch.nn.Sequential, torch.Tensor], mode: str, weak_form: Union[None, list[callable]],
-                 lambda_operator, lambda_bound, tol: float, derivative_points: int):
+                 lambda_operator, lambda_bound, tol: float = 0, derivative_points: int = 2):
 
         self.grid = check_device(grid)
         if mode == 'NN':
@@ -32,8 +32,9 @@ class Solution():
             self.n_t = len(self.grid[:, 0].unique())
         elif mode == 'mat':
             self.n_t = grid.shape[1]
-        equal_copy = copy(equal_cls) #deepcopy(equal_cls)
+        equal_copy = deepcopy(equal_cls)
         prepared_operator = equal_copy.operator_prepare()
+        self.operator_coeff(equal_cls, prepared_operator)
         prepared_bconds = equal_copy.bnd_prepare()
         self.model = model.to(device_type())
         self.mode = mode
@@ -53,6 +54,17 @@ class Solution():
         self.op_list = []
         self.bval_list = []
         self.loss_list = []
+
+    @staticmethod
+    def operator_coeff(equal_cls, operator):
+        for i in range(len(operator)):
+            eq = operator[i]
+            for key in eq.keys():
+                if isinstance(eq[key]['coeff'], torch.Tensor):
+                    try:
+                        eq[key]['coeff'] = equal_cls.operator[i][key]['coeff'].to(device_type())
+                    except:
+                        eq[key]['coeff'] = equal_cls.operator[key]['coeff'].to(device_type())
 
 
     def evaluate(self,

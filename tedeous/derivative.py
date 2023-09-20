@@ -166,7 +166,6 @@ class Derivative_mat(DerivativeInt):
         """
         shape = u_tensor.shape
         u_tensor = u_tensor.reshape(-1)
-        h = h[0]
 
         du_back = 0
         du_farw = 0

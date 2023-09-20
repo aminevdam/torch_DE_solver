@@ -305,7 +305,7 @@ class Solver():
                                       self.model, self.mode, self.weak_form,
                                       lambda_operator, lambda_bound, tol, derivative_points)
 
-            _ , min_loss = Solution_class.evaluate()
+            min_loss , _ = Solution_class.evaluate()
 
         self.plot = Plots(self.model, self.grid, self.mode, tol)
 

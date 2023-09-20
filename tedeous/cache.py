@@ -65,7 +65,7 @@ class Model_prepare():
              file = __file__
         except:
             file = os.getcwd()
-        self.cache_dir = os.path.normpath((os.path.join(os.path.dirname(file), '..','cache/')))
+        self.cache_dir = os.path.normpath((os.path.join(os.path.dirname(file), '..','cache')))
 
     def change_cache_dir(self, string):
         self.cache_dir=string
@@ -165,7 +165,7 @@ class Model_prepare():
             * **best_checkpoint** -- best model with optimizator state.\n
             * **min_loss** -- minimum error in pre-trained error.
         """
-        files = glob.glob(self.cache_dir + "/" + '*.tar')
+        files = glob.glob(self.cache_dir + '\*.tar')
         if len(files) == 0:
             best_checkpoint = None
             min_loss = np.inf
@@ -235,11 +235,11 @@ class Model_prepare():
 
         try:
             torch.save({'model': prep_model.to('cpu'), 'model_state_dict': state,
-                        'optimizer_state_dict': optimizer_state}, self.cache_dir + name + '.tar')
+                        'optimizer_state_dict': optimizer_state}, self.cache_dir+'\\' + name + '.tar')
             print('model is saved in cache')
         except RuntimeError:
             torch.save({'model': prep_model.to('cpu'), 'model_state_dict': state,
-                        'optimizer_state_dict': optimizer_state}, self.cache_dir + name + '.tar', _use_new_zipfile_serialization=False) #cyrrilic in path
+                        'optimizer_state_dict': optimizer_state}, self.cache_dir+'\\' + name + '.tar', _use_new_zipfile_serialization=False) #cyrrilic in path
             print('model is saved in cache')
         except:
             print('Cannot save model in cache')
@@ -276,7 +276,7 @@ class Model_prepare():
                     t, loss))
 
         self.save_model(cache_model, cache_model.state_dict(),
-                        optimizer.state_dict(), cache_dir=self.cache_dir, name=name)
+                        optimizer.state_dict(), name=name)
 
     def scheme_interp(self, trained_model: Any, cache_verbose: bool = False) -> Tuple[Any, dict]:
         """
@@ -302,7 +302,7 @@ class Model_prepare():
             return loss
 
         t = 0
-        while loss > 1e-4 and t < 1e5:
+        while loss > 1e-5 and t < 1e5:
             optimizer.step(closure)
             loss = torch.mean(torch.square(
                 trained_model(self.grid) - self.model(self.grid)))

@@ -148,11 +148,13 @@ class FeedForward(nn.Module):
                                            requires_grad=True).float())
             self.net.register_parameter(key, parameters[key])
 
+
 def parameter_registr(model, parameters):
     for key, value in parameters.items():
         parameters[key] = torch.nn.Parameter(torch.tensor([value],
                                         requires_grad=True).float())
         model.register_parameter(key, parameters[key])
+
 
 def mat_model(grid, equation, nn_model=None):
     if type(equation) is list:
