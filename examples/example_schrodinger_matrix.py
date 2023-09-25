@@ -184,7 +184,11 @@ equation_mat = Equation(grid, schrodinger_eq, bconds).set_strategy('mat')
 
 model = mat_model(grid, schrodinger_eq)
 
-print(model.shape)
+img_dir=os.path.join(os.path.dirname( __file__ ), 'schrodinger_img_mat')
+
+if not(os.path.isdir(img_dir)):
+    os.mkdir(img_dir)
 
 model = Solver(grid, equation_mat, model, 'mat').solve(lambda_bound=1, verbose=1, learning_rate=0.8, gamma=0.9, lr_decay=200, derivative_points=5,
-                                    eps=1e-6, tmax=1e5, print_every=10, optimizer_mode='LBFGS',step_plot_save=True, use_cache=False)
+                                    eps=1e-6, tmax=1e5, print_every=100, optimizer_mode='LBFGS',step_plot_save=True, use_cache=True, save_always=True,
+                                    cache_verbose=True, image_save_dir=img_dir)

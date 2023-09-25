@@ -30,11 +30,11 @@ def lambda_prepare(val, lambda_: Union[int, list, torch.Tensor]) -> torch.Tensor
 
     if type(lambda_) is int:
         try:
-            lambdas = torch.ones(val.shape[-1])*lambda_
+            lambdas = torch.ones(val.shape[-1], dtype=val.dtype)*lambda_
         except:
-            lambdas = torch.tensor(lambda_)
+            lambdas = torch.tensor(lambda_, dtype=val.dtype)
     elif type(lambda_) is list:
-        lambdas = torch.tensor(lambda_)
+        lambdas = torch.tensor(lambda_, dtype=val.dtype)
 
     return lambdas.reshape(1,-1)
 

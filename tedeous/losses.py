@@ -23,7 +23,8 @@ class Losses():
             op = operator
         else:
             op = torch.mean(operator**2, 0)
-        loss_operator = lambda_op @ op
+        
+        loss_operator = op @ lambda_op.T 
         return loss_operator, op
 
 
@@ -35,7 +36,8 @@ class Losses():
             boundary loss
         """
         bval_diff = torch.mean((bval - true_bval)**2, 0)
-        loss_bnd = lambda_bound @ bval_diff
+        #print(lambda_bound, bval_diff)
+        loss_bnd = bval_diff @ lambda_bound.T
         return loss_bnd, bval_diff
 
 
@@ -62,8 +64,8 @@ class Losses():
         lambda_bound_normalized = lambda_prepare(bval, 1)
 
         with torch.no_grad():
-            loss_normalized = lambda_op_normalized @ op +\
-                        lambda_bound_normalized @ bval_diff
+            loss_normalized = op @ lambda_op_normalized.T +\
+                        bval_diff @ lambda_bound_normalized.T
 
         # TODO make decorator and apply it for all losses.
         if not save_graph:
@@ -91,7 +93,7 @@ class Losses():
 
         res = torch.sum(operator**2, dim=1).reshape(self.n_t, -1)
         res = torch.mean(res, axis=1).reshape(self.n_t, 1)
-        M = torch.triu(torch.ones((self.n_t, self.n_t)), diagonal=1).T
+        M = torch.triu(torch.ones((self.n_t, self.n_t), dtype=res.dtype), diagonal=1).T
         with torch.no_grad():
             W = torch.exp(- self.tol * (M @ res))
 
@@ -122,12 +124,19 @@ class Losses():
         if bval == None:
             return sum(operator)
 
-        # we apply no  boundary conditions operators if they are all None
+        loss_oper, op = self.loss_op(operator, lambda_op)
 
-        loss = self.loss_op(operator, lambda_op) +\
-                                self.loss_bcs(bval, true_bval, lambda_bound)
+        loss_bnd, bval_diff = self.loss_bcs(bval, true_bval, lambda_bound)
+        loss = loss_oper + loss_bnd
 
-        return loss
+        lambda_op_normalized = lambda_prepare(operator, 1)
+        lambda_bound_normalized = lambda_prepare(bval, 1)
+
+        with torch.no_grad():
+            loss_normalized = op @ lambda_op_normalized.T +\
+                        bval_diff @ lambda_bound_normalized.T
+
+        return loss, loss_normalized
 
     def compute(self, operator, bval, true_bval, lambda_op, lambda_bound, save_graph=True) -> \
                                 Union[default_loss, weak_loss, causal_loss]:

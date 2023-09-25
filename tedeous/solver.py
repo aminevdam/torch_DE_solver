@@ -429,7 +429,7 @@ class Solver():
                 break
         if save_always:
             if self.mode == 'mat':
-                Cache_class.save_model_mat(name=name)
+                Cache_class.save_model_mat(name=name, cache_verbose=cache_verbose)
             else:
                 Cache_class.save_model(self.model, self.model.state_dict(),
                                        optimizer.state_dict(),

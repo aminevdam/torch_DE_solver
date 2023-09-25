@@ -193,7 +193,6 @@ class Derivative_mat(DerivativeInt):
         for i in range(NN_grid.shape[-1]):
             axis_points = torch.unique(NN_grid[:,i])
             h.append(abs(axis_points[1]-axis_points[0]))
-
         return h
 
     def derivative(self, u_tensor: torch.Tensor, h, axis: int) -> torch.Tensor:
@@ -208,7 +207,7 @@ class Derivative_mat(DerivativeInt):
         Returns:
             computed derivative.
         """
-        if (u_tensor.shape[0]==1):
+        if len(u_tensor.shape)==1 or u_tensor.shape[0]==1:
             du = self.derivative_1d(u_tensor, h)
             return du
 

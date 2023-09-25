@@ -117,7 +117,7 @@ class Model_prepare():
             for label in list(op.keys()):
                 term = op[label]
                 if type(term['coeff']) == torch.Tensor:
-                    term['coeff'] = term['coeff'].reshape(-1)
+                    term['coeff'] = term['coeff'].reshape(-1, 1)
                 elif callable(term['coeff']):
                     print("Warning: coefficient is callable,\
                                 it may lead to wrong cache item choice")

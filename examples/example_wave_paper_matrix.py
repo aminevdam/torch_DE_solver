@@ -154,7 +154,7 @@ for grid_res in range(40, 110, 10):
 
         equation = Equation(grid, wave_eq, bconds).set_strategy('mat')
 
-        model= mat_model(grid, equation)
+        model= mat_model(grid, wave_eq)
 
         img_dir=os.path.join(os.path.dirname( __file__ ), 'wave_img')
 
@@ -162,11 +162,11 @@ for grid_res in range(40, 110, 10):
             os.mkdir(img_dir)
 
         model = Solver(grid, equation, model, 'mat').solve(lambda_bound=100,
-                                         verbose=True, learning_rate=1e-4, eps=1e-7, tmin=1000, tmax=56,
+                                         verbose=True, learning_rate=1e-1, eps=1e-7, tmin=1000, tmax=5e6,
                                          use_cache=True,cache_dir='../cache/',cache_verbose=False,
-                                         save_always=False,print_every=None,
-                                         patience=5,loss_oscillation_window=100,no_improvement_patience=100,
-                                         model_randomize_parameter=1e-5,optimizer_mode='Adam',cache_model=model_arch,step_plot_print=False,step_plot_save=False,image_save_dir=img_dir)
+                                         save_always=False, print_every=100,
+                                         patience=5, loss_oscillation_window=100, no_improvement_patience=100,
+                                         model_randomize_parameter=1e-5,optimizer_mode='LBFGS',cache_model=model_arch,step_plot_print=False,step_plot_save=True,image_save_dir=img_dir)
 
 
 
