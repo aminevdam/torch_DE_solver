@@ -4,7 +4,7 @@ Created on Tue Aug 24 11:50:12 2021
 
 @author: user
 """
-
+import pickle
 import datetime
 import os
 import glob
@@ -23,10 +23,10 @@ def count_output(model: torch.Tensor) -> int:
     """ Determine the out features of the model.
 
     Args:
-        model (torch.Tensor): torch neural network.
+        model (torch.Tensor): torch neural network
 
     Returns:
-        int: number of out features.
+        int: number of out features
     """
     modules, output_layer = list(model.modules()), None
     for layer in reversed(modules):
@@ -37,13 +37,13 @@ def count_output(model: torch.Tensor) -> int:
 
 
 def create_random_fn(eps: float) -> callable:
-    """ Create random tensors to add some variance to torch neural network.
+    """ create random tensors to add some variance to torch neural network
 
     Args:
-        eps (float): randomize parameter.
+        eps (float): randomize parameter
 
     Returns:
-        callable: creating random params function.
+        callable: creating random params function
     """
     def randomize_params(m):
         if isinstance(m, torch.nn.Linear) or isinstance(m, torch.nn.Conv2d):
@@ -55,10 +55,10 @@ def create_random_fn(eps: float) -> callable:
 
 
 def remove_all_files(folder: str) -> None:
-    """ Remove all files from folder.
+    """ remove all files from folder
 
     Args:
-        folder (str): folder name.
+        folder (str): folder name
     """
     for filename in os.listdir(folder):
         file_path = os.path.join(folder, filename)
@@ -83,23 +83,23 @@ class CacheUtils:
         self._cache_dir = os.path.normpath((os.path.join(os.path.dirname(file), '..', 'cache')))
 
     def get_cache_dir(self):
-        """Get cache dir.
+        """Get cache dir
 
         Returns:
-            str: cache folder directory.
+            str: cache folder directory
         """
         return self._cache_dir
 
     def set_cache_dir(self, string: str) -> None:
-        """ Change the directory of cache.
+        """change the directory of cache
 
         Args:
-            string (str): new cache directory.
+            string (str): new cache directory
         """
         self._cache_dir = string
 
     def clear_cache_dir(self, directory: Union[str, None] = None) -> None:
-        """ Clear cache directory.
+        """Clear cache directory
 
         Args:
             directory (str, optional): custom cache directory. Defaults to None.
@@ -114,13 +114,13 @@ class CacheUtils:
     @staticmethod
     def grid_model_mat(model: torch.Tensor,
                        grid: torch.Tensor,
-                       cache_model: torch.nn.Module=None) -> Tuple[torch.Tensor, torch.nn.Module]:
-        """ Create grid and model for *NN or autograd* modes from grid
-            and model of *mat* mode.
+                       cache_model: torch.nn.Module=None) -> tuple(torch.Tensor, torch.nn.Module):
+        """ Create grid and model for *NN or autograd* methods from grid
+            and model of *mat* 
 
         Args:
-            model (torch.Tensor): model from *mat* method.
-            grid (torch.Tensor): grid from *mat* method.
+            model (torch.Tensor): model from *mat* method
+            grid (torch.Tensor): grid from *mat* method
             cache_model (torch.nn.Module, optional): neural network that will 
                                                      approximate *mat* model. Defaults to None.
 
@@ -149,10 +149,10 @@ class CacheUtils:
     @staticmethod
     def mat_op_coeff(operator: dict) -> dict:
         """ Preparation of coefficients in the operator of the *mat* method
-            to suit methods *NN, autograd*.
+            to suit methods *NN, autograd*
 
         Args:
-            operator (dict): operator (equation dict).
+            operator (dict): operator (equation dict)
 
         Returns:
             operator (dict): operator (equation dict) with suitable coefficients.
@@ -169,14 +169,15 @@ class CacheUtils:
                                     it may lead to wrong cache item choice")
         return operator
 
-    def save_model(
-        self,
-        model: torch.nn.Module,
-        name: Union[str, None] = None) -> None:
+    def save_model(self, model: torch.nn.Module,
+                   optimizer: dict, scaler: Any = None,
+                   name: Union[str, None] = None) -> None:
         """
         Saved model in a cache (uses for 'NN' and 'autograd' methods).
         Args:
             model (torch.nn.Module): model to save.
+            optimizer (dict): holding current optimization state (i.e., values, hyperparameters).
+            scaler (any, optional): gradient scaler
             (uses only with mixed precision and device=cuda). Defaults to None.
             name (str, optional): name for a model. Defaults to None.
         """
@@ -185,8 +186,11 @@ class CacheUtils:
             name = str(datetime.datetime.now().timestamp())
         if not os.path.isdir(self.cache_dir):
             os.mkdir(self.cache_dir)
+
         parameters_dict = {'model': model.to('cpu'),
-                           'model_state_dict': model.state_dict()}
+                           'model_state_dict': model.state_dict(),
+                           'optimizer_state_dict': optimizer.state_dict(),
+                           'scaler_state_dict': scaler.state_dict() if scaler is not None else None}
 
         try:
             torch.save(parameters_dict, self.cache_dir + '\\' + name + '.tar')
@@ -229,7 +233,7 @@ class CacheUtils:
             print('Interpolate from trained model t={}, loss={}'.format(
                     t, loss))
 
-        self.save_model(cache_model, name=name)
+        self.save_model(cache_model, optimizer, name=name)
 
 
 class CachePreprocessing:
@@ -259,7 +263,7 @@ class CachePreprocessing:
         self.mixed_precision = mixed_precision
 
     @staticmethod
-    def _cache_files(files: list, nmodels: Union[int, None]=None) -> np.ndarray:
+    def cache_files(files: list, nmodels: Union[int, None]=None) -> np.ndarray:
         """ At some point we may want to reduce the number of models that are
             checked for the best in the cache.
 
@@ -281,7 +285,7 @@ class CachePreprocessing:
         return cache_n
 
     @staticmethod
-    def _model_reform(init_model: Union[torch.nn.Sequential, torch.nn.ModuleList],
+    def model_reform(init_model: Union[torch.nn.Sequential, torch.nn.ModuleList],
                      model: Union[torch.nn.Sequential, torch.nn.ModuleList]):
         """
         As some models are nn.Sequential class objects,
@@ -289,11 +293,11 @@ class CachePreprocessing:
         This method does checking the solver model (init_model)
         and the cache model (model).
         Args:
-            init_model (nn.Sequential or nn.ModuleList): solver model.
-            model (nn.Sequential or nn.ModuleList): cache model.
+            init_model (nn.Sequential or nn.ModuleList): solver model
+            model (nn.Sequential or nn.ModuleList): cache model
         Returns:
-            init_model (nn.Sequential or nn.ModuleList): checked init_model.
-            model (nn.Sequential or nn.ModuleList): checked model.
+            init_model (nn.Sequential or nn.ModuleList): 
+            model (nn.Sequential or nn.ModuleList): 
         """
         try:
             model[0]
@@ -312,7 +316,7 @@ class CachePreprocessing:
                      lambda_bound: float = 1.,
                      nmodels: Union[int, None] = None,
                      save_graph: bool = False,
-                     cache_verbose: bool = False) -> Union[None, dict, torch.nn.Module]:
+                     cache_verbose: bool = False) -> Union[None, dict, torch.Tensor]:
         """Looking for the best model (min loss) model from the cache files.
 
         Args:
@@ -321,6 +325,7 @@ class CachePreprocessing:
             nmodels (Union[int, None], optional): maximal number of models that are taken from cache dir. Defaults to None.
             save_graph (bool, optional): responsible for saving the computational graph. Defaults to False.
             cache_verbose (bool, optional): verbose cache operations. Defaults to False.
+            return_normalized_loss (bool, optional): _description_. Defaults to False.
 
         Returns:
             Union[None, dict, torch.Tensor]: best model with optimizator state.
@@ -331,9 +336,10 @@ class CachePreprocessing:
             best_checkpoint = None
             return best_checkpoint
 
-        cache_n = self._cache_files(files, nmodels)
+        cache_n = self.cache_files(files, nmodels)
 
         min_loss = np.inf
+        min_norm_loss = np.inf
         best_checkpoint = {}
 
         device = device_type()
@@ -347,7 +353,7 @@ class CachePreprocessing:
 
             # this one for the input shape fix if needed
 
-            solver_model, cache_model = self._model_reform(self.model, model)
+            solver_model, cache_model = self.model_reform(self.model, model)
 
             if cache_model[0].in_features != solver_model[0].in_features:
                 continue
@@ -365,10 +371,13 @@ class CachePreprocessing:
 
             if loss < min_loss:
                 min_loss = loss
+                min_norm_loss = loss_normalized
                 best_checkpoint['model'] = model
                 best_checkpoint['model_state_dict'] = model.state_dict()
+                best_checkpoint['optimizer_state_dict'] = \
+                    checkpoint['optimizer_state_dict']
                 if cache_verbose:
-                    print('best_model_num={} , loss={}'.format(i, min_loss.item()))
+                    print('best_model_num={} , normalized_loss={}'.format(i, min_norm_loss.item()))
 
         if best_checkpoint == {}:
             best_checkpoint = None
@@ -377,7 +386,7 @@ class CachePreprocessing:
 
     def scheme_interp(self,
                       trained_model: torch.nn.Module,
-                      cache_verbose: bool = False) -> torch.nn.Module:
+                      cache_verbose: bool = False) -> Tuple[Any, dict]:
         """ If the cache model has another arcitechure to user's model,
             we will not be able to use it. So we train user's model on the
             outputs of cache model.
@@ -388,7 +397,7 @@ class CachePreprocessing:
 
         Returns:
             self.model (torch.nn.Module): model trained on the cache model outputs.
-
+            state_dict (dict): optimizer state.
         """
         optimizer = torch.optim.Adam(self.model.parameters(), lr=0.001)
 
@@ -411,11 +420,13 @@ class CachePreprocessing:
                 print('Interpolate from trained model t={}, loss={}'.format(
                     t, loss))
 
-        return self.model
+        state_dict = optimizer.state_dict()
+
+        return self.model, state_dict
 
     def cache_retrain(self,
                       cache_checkpoint: dict,
-                      cache_verbose: bool = False) -> torch.nn.Module:
+                      cache_verbose: bool = False) -> Tuple[Any, dict]:
         """ The comparison of the user's model and cache model architecture.
             If they are same, we will use model from cache. In the other case
             we use interpolation (scheme_interp method)
@@ -448,115 +459,91 @@ class CachePreprocessing:
             cache_model = cache_checkpoint['model']
             cache_model.load_state_dict(cache_checkpoint['model_state_dict'])
             cache_model.eval()
-            model = self.scheme_interp(
+            model, optimizer_state = self.scheme_interp(
                 cache_model, cache_verbose=cache_verbose)
-        return model
+        return model, optimizer_state
 
 
 class Cache():
     """
-    Prepares user's model. Serves for computing acceleration.\n
-    Saves the trained model to the cache, and subsequently it is possible to use pre-trained model
-    (if it saved and if the new model is structurally similar) to sped up computing.\n
+    Prepares initial model. Serves for computing acceleration.\n
+    Saves the trained model to the cache, and subsequently it is possible to use pre-trained model (if \\\
+    it saved and if the new model is structurally similar) to sped up computing.\n
     If there isn't pre-trained model in cache, the training process will start from the beginning.
     """
 
-    def __init__(self,
-                 grid: torch.Tensor,
-                 equal_cls: Equation,
-                 model: Union[torch.Tensor, torch.nn.Module],
-                 mode: str,
-                 weak_form: Union[list, None],
-                 mixed_precision: bool):
-        """
-        Args:
-            grid (torch.Tensor): grid (domain discretization)
-            equal_cls (Equation class object): Equation class object that contain preprocessed
-                                               operator (equation) and boundary con-s.
-            model (Union[torch.Tensor, torch.nn.Module]): model (neural network or tensor)
-            mode (str): solution strategy (mat, NN, autograd)
-            weak_form (Union[list, None]): list that contains basis function for weak solution.
-                                           If None: soluion in strong form.
-            mixed_precision (bool): flag for on/off torch.amp.
-        """
+    def __init__(self, grid, equal_cls, model, mode, weak_form, mixed_precision):
         self.grid = grid
         self.equal_cls = equal_cls
         self.model = model
         self.mode = mode
         self.weak_form = weak_form
         self.mixed_precision = mixed_precision
-        self.cache_preprocessing = CachePreprocessing(grid, equal_cls, model, mode,
-                                                        weak_form, mixed_precision)
+        self.cache_preprocessing = CachePreprocessing(grid, equal_cls, model, mode, weak_form, mixed_precision)
 
-    def _cache_nn(self,
-                 nmodels: Union[int, None],
-                 lambda_operator: float,
-                 lambda_bound: float,
-                 cache_verbose: bool,
-                 model_randomize_parameter: Union[float, None]):
-        """  Restores the model from the cache and uses it for *NN, autograd* modes.
-
-        Args:
-            nmodels (Union[int, None]): model quantity taken from cache directory.
-            lambda_operator (float): regulariazation parameter for operator term in loss.
-            lambda_bound (float): regulariazation parameter for boundary term in loss.
-            cache_verbose (bool): verbose cache operations.
-            model_randomize_parameter (Union[float, None]): some error for resulting
-            model weights to to avoid local optima.
-
-        Returns:
-            model (torch.nn.Module): final model for optimization
+    def cache_nn(self, nmodels: Union[int, None], lambda_operator: float, lambda_bound: float,
+                 cache_verbose: bool, model_randomize_parameter: Union[float, None],
+                 cache_model: torch.nn.Sequential, return_normalized_loss: bool = False):
         """
-
+       Restores the model from the cache and uses it for retraining.
+       Args:
+           cache_dir: a directory where saved cache in.
+           nmodels: smth
+           lambda_bound: an arbitrary chosen constant, influence only convergence speed.
+           cache_verbose: more detailed info about models in cache.
+           model_randomize_parameter:  Creates a random model parameters (weights, biases) multiplied with a given
+                                       randomize parameter.
+           cache_model: cached model
+       Returns:
+           * **model** -- NN.\n
+           * **min_loss** -- min loss as is.
+       """
         r = create_random_fn(model_randomize_parameter)
 
         cache_checkpoint = self.cache_preprocessing.cache_lookup(nmodels=nmodels,
-                                                                cache_verbose=cache_verbose,
-                                                                lambda_operator=lambda_operator,
-                                                                lambda_bound=lambda_bound)
-
-        model = self.cache_preprocessing.cache_retrain(cache_checkpoint,
-                                                        cache_verbose=cache_verbose)
+                                                                 cache_verbose=cache_verbose,
+                                                                 lambda_operator=lambda_operator,
+                                                                 lambda_bound=lambda_bound,
+                                                                 return_normalized_loss=return_normalized_loss)
+        # print(cache_checkpoint)
+        model = self.cache_preprocessing.cache_retrain(cache_checkpoint, cache_verbose=cache_verbose)
         model.apply(r)
 
         return model
 
-    def _cache_mat(self,
-                  nmodels: Union[int, None],
-                  lambda_operator: float,
-                  lambda_bound: float,
-                  cache_verbose: bool,
-                  model_randomize_parameter: Union[float, None],
-                  cache_model: Union[torch.nn.Module, None]) -> torch.Tensor:
-        """ Restores the model from the cache and uses it for *mat* mode.
-
-        Args:
-            nmodels (Union[int, None]): model quantity taken from cache directory.
-            lambda_operator (float):regulariazation parameter for operator term in loss.
-            lambda_bound (float): regulariazation parameter for boundary term in loss.
-            cache_verbose (bool): verbose cache operations.
-            model_randomize_parameter (Union[float, None]): some error for resulting
-            model weights to to avoid local optima.
-            cache_model (Union[torch.nn.Module, None]): user defined cache model.
-
-        Returns:
-            model (torch.Tensor): resulting model for *mat* mode.
+    def cache_mat(self, nmodels: Union[int, None], lambda_operator: float, lambda_bound: float,
+                  cache_verbose: bool, model_randomize_parameter: Union[float, None],
+                  cache_model: torch.nn.Sequential, return_normalized_loss: bool = False):
         """
+       Restores the model from the cache and uses it for retraining.
+       Args:
+           cache_dir: a directory where saved cache in.
+           nmodels: smth
+           lambda_bound: an arbitrary chosen constant, influence only convergence speed.
+           cache_verbose: more detailed info about models in cache.
+           model_randomize_parameter:  Creates a random model parameters (weights, biases) multiplied with a given
+                                       randomize parameter.
+           cache_model: cached model
+       Returns:
+           * **model** -- mat.\n
+           * **min_loss** -- min loss as is.
+       """
 
-        nn_grid, cache_model = CacheUtils.grid_model_mat(self.model, self.grid, cache_model)
+        NN_grid, cache_model = CacheUtils.grid_model_mat(self.model, self.grid, cache_model)
         operator = deepcopy(self.equal_cls.operator)
         bconds = deepcopy(self.equal_cls.bconds)
         operator = CacheUtils.mat_op_coeff(operator)
         r = create_random_fn(model_randomize_parameter)
-        eq = Equation(nn_grid, operator, bconds).set_strategy('autograd')
-        model_cls = CachePreprocessing(nn_grid, eq, cache_model, 'autograd', self.weak_form,
-                                        self.mixed_precision)
+        eq = Equation(NN_grid, operator, bconds).set_strategy('autograd')
+        model_cls = CachePreprocessing(NN_grid, eq, cache_model, 'autograd', self.weak_form,
+                                       self.mixed_precision)
 
         cache_checkpoint = model_cls.cache_lookup(
             nmodels=nmodels,
             cache_verbose=cache_verbose,
             lambda_bound=lambda_bound,
-            lambda_operator=lambda_operator)
+            lambda_operator=lambda_operator,
+            return_normalized_loss=return_normalized_loss)
 
         if cache_checkpoint is not None:
             prepared_model = model_cls.cache_retrain(
@@ -565,40 +552,42 @@ class Cache():
 
             prepared_model.apply(r)
 
-            model = prepared_model(nn_grid).reshape(
+            model = prepared_model(NN_grid).reshape(
                 self.cache_preprocessing.model.shape).detach()
 
+            min_loss, _ = Solution(self.cache_preprocessing.grid, self.cache_preprocessing.equal_cls,
+                                   model, self.cache_preprocessing.mode, self.cache_preprocessing.weak_form,
+                                   lambda_operator, lambda_bound, tol=0,
+                                   derivative_points=2).evaluate()
         else:
             model = self.cache_preprocessing.model
 
         return model
 
-    def cache(self,
-              nmodels: Union[int, None],
-              lambda_operator: float,
-              lambda_bound: float,
-              cache_verbose: bool,
-              model_randomize_parameter: Union[float, None],
-              cache_model: torch.nn.Module):
-        """ Wrap for cache_mat and cache_nn methods.
-
+    def cache(self, nmodels: Union[int, None], lambda_operator, lambda_bound: float,
+              cache_verbose: bool, model_randomize_parameter: Union[float, None],
+              cache_model: torch.nn.Sequential,
+              return_normalized_loss: bool = False):
+        """
+        Restores the model from the cache and uses it for retraining.
         Args:
-            nmodels (Union[int, None]): model quantity taken from cache directory.
-            lambda_operator (_type_): regulariazation parameter for operator term in loss.
-            lambda_bound (float): regulariazation parameter for boundary term in loss.
-            cache_verbose (bool):  verbose cache operations.
-            model_randomize_parameter (Union[float, None]): some error for resulting
-            model weights to to avoid local optima.
-            cache_model (Union[torch.nn.Module, None]): user defined cache model.
+            cache_dir: a directory where saved cache in.
+            nmodels: number cached models.
+            lambda_bound: an arbitrary chosen constant, influence only convergence speed.
+            cache_verbose: more detailed info about models in cache.
+            model_randomize_parameter:  Creates a random model parameters (weights, biases) multiplied with a given
+                                        randomize parameter.
+            cache_model: cached model
 
         Returns:
             cache.cache_nn or cache.cache_mat
         """
 
         if self.mode != 'mat':
-            return self._cache_nn(nmodels, lambda_operator, lambda_bound,
-                                 cache_verbose, model_randomize_parameter)
+            return self.cache_nn(nmodels, lambda_operator, lambda_bound,
+                                 cache_verbose, model_randomize_parameter,
+                                 cache_model, return_normalized_loss=return_normalized_loss)
         elif self.mode == 'mat':
-            return self._cache_mat(nmodels, lambda_operator, lambda_bound,
+            return self.cache_mat(nmodels, lambda_operator, lambda_bound,
                                   cache_verbose, model_randomize_parameter,
-                                  cache_model)
+                                  cache_model, return_normalized_loss=return_normalized_loss)
