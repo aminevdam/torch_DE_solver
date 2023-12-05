@@ -452,109 +452,31 @@ class Solver():
             normalized_loss_stop (bool): calculate loss with all lambdas=1.
 
         """
-        #
-        # def closure():
-        #     self.optimizer.zero_grad()
-        #     with torch.autocast(device_type=self.device, dtype=dtype, enabled=mixed_precision):
-        #         loss, loss_normalized = self.sln_cls.evaluate(second_order_interactions,
-        #                                                       sampling_N, lambda_update)
-        #
-        #     loss.backward()
-        #     self.cur_loss = loss_normalized if normalized_loss_stop else loss
-        #     return loss
-        #
-        # def closure_cuda():
-        #     self.optimizer.zero_grad()
-        #     with torch.autocast(device_type=self.device, dtype=dtype, enabled=mixed_precision):
-        #         loss, loss_normalized = self.sln_cls.evaluate(second_order_interactions,
-        #                                                       sampling_N, lambda_update)
-        #
-        #     scaler.scale(loss).backward()
-        #     scaler.step(self.optimizer)
-        #     scaler.update()
-        #
-        #     self.cur_loss = loss_normalized if normalized_loss_stop else loss
-        #     return loss
-        #
-        # def zo_closure(size_params, mu):
-        #     grad_est = []
-        #
-        #     # Generate a random direction uniformly on the unit ball or with a gaussian distribution
-        #
-        #     ## ---
-        #     # The correct way to generate a uniform variable on the sphere is by generating u in this way and then projecting u onto the sphere.
-        #     # As we did not immediately find out how to have a uniform variable on the sphere we first used the way that is not commented on.
-        #     # We found that after doing the experiments how to do it, but after testing it did not change the performance of our algorithm,
-        #     # so we left the first version for the sake of reproducibility.
-        #
-        #     # u = torch.normal(mean=torch.zeros(size_params), std=1)
-        #     self.optimizer.zero_grad()
-        #     # outputs = model(data)
-        #     self.cur_loss, _ = self.sln_cls.evaluate(second_order_interactions,
-        #                                                       sampling_N, lambda_update)
-        #     u = 2 * (torch.rand(size_params) - 0.5)
-        #     u.div_(torch.norm(u, "fro"))
-        #     u = u.to('cuda')
-        #
-        #     # save the state of the model
-        #     model_init = dict(self.model.state_dict())
-        #     model_init_parameters = self.model.parameters()
-        #
-        #     with torch.no_grad():
-        #         # we add to the initial parameters a random perturbation times \mu
-        #         start_ind = 0
-        #         for param_tensor in self.model.parameters():
-        #             end_ind = start_ind + param_tensor.view(-1).size()[0]
-        #             param_tensor.add_(u[start_ind:end_ind].view(param_tensor.size()).float(), alpha=mu)
-        #             start_ind = end_ind
-        #
-        #     # evaluation of the model and the with a random perturbation of the parameters
-        #
-        #     loss_random, _ = self.sln_cls.evaluate(second_order_interactions,
-        #                                                       sampling_N, lambda_update)
-        #
-        #     with torch.no_grad():
-        #         # compute the "gradient norm"
-        #         grad_norm = size_params * (loss_random - self.cur_loss) / mu
-        #
-        #         start_ind = 0
-        #         for param_tensor in model_init_parameters:
-        #             end_ind = start_ind + param_tensor.view(-1).size()[0]
-        #             grad_est.append(grad_norm * u[start_ind:end_ind].view(param_tensor.size()))
-        #             start_ind = end_ind
-        #
-        #     # reload initial state of the parameters
-        #     self.model.load_state_dict(model_init)  # try to subtract the random vector to get back initial params
-        #
-        #     return grad_est
-        #
-        # def closure_sgd(param, fd_eps):
-        #     orig_param = param.data.clone()
-        #
-        #     self.cur_loss,_= self.sln_cls.evaluate(second_order_interactions,
-        #                                                       sampling_N, lambda_update)
-        #
-        #     direction = torch.randint(0, 2, param.data.shape) * 2 - 1
-        #     direction = direction.to(param.device)
-        #
-        #
-        #     param.data.add_(fd_eps * direction)
-        #
-        #     loss_plus, _ = self.sln_cls.evaluate(second_order_interactions,
-        #                                                       sampling_N, lambda_update)
-        #     param.data.sub_(1 * fd_eps * direction)
-        #
-        #     loss_, _ = self.sln_cls.evaluate(second_order_interactions,
-        #                                                       sampling_N, lambda_update)
-        #
-        #     grad_est_flat = (loss_plus - loss_) / (fd_eps)
-        #
-        #     grad_est = grad_est_flat / direction
-        #
-        #     param.data = orig_param.clone()
-        #
-        #     return grad_est
-        def closure(size_params, mu, N_samples, input_size, d, sampler, gradient_mode):
+
+        def closure():
+            self.optimizer.zero_grad()
+            with torch.autocast(device_type=self.device, dtype=dtype, enabled=mixed_precision):
+                loss, loss_normalized = self.sln_cls.evaluate(second_order_interactions,
+                                                              sampling_N, lambda_update)
+
+            loss.backward()
+            self.cur_loss = loss_normalized if normalized_loss_stop else loss
+            return loss
+
+        def closure_cuda():
+            self.optimizer.zero_grad()
+            with torch.autocast(device_type=self.device, dtype=dtype, enabled=mixed_precision):
+                loss, loss_normalized = self.sln_cls.evaluate(second_order_interactions,
+                                                              sampling_N, lambda_update)
+
+            scaler.scale(loss).backward()
+            scaler.step(self.optimizer)
+            scaler.update()
+
+            self.cur_loss = loss_normalized if normalized_loss_stop else loss
+            return loss
+
+        def zo_closure(size_params, mu, N_samples, input_size, d, sampler, gradient_mode):
             init_model_parameters = deepcopy(dict(self.model.state_dict()))
             model_parameters = dict(self.model.state_dict()).values()
 
@@ -615,12 +537,19 @@ class Solver():
                 # load initial model parameters
                 self.model.load_state_dict(init_model_parameters)
 
-                loss_checker,_ = self.sln_cls.evaluate(second_order_interactions, sampling_N, lambda_update)
+                loss_checker, _ = self.sln_cls.evaluate(second_order_interactions, sampling_N, lambda_update)
                 assert self.cur_loss == loss_checker
 
             return grads
-
-        self.optimizer.step(closure)
+       
+        try:
+            self.optimizer.name == 'PSO'
+            self.cur_loss = self.optimizer.step()
+        except:
+            if self.optimizer.name[:2] == 'ZO':
+                self.optimizer.step(zo_closure)
+            else:
+                self.optimizer.step(closure) if not cuda_flag else closure_cuda()
 
 
     def _model_save(
