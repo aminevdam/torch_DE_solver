@@ -11,9 +11,11 @@ import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 from torch.optim.optimizer import Optimizer
 
+
 class PSO():
     """Custom PSO optimizer.
     """
+
     def __init__(self,
                  pop_size: int = 30,
                  b: float = 0.9,
@@ -125,10 +127,10 @@ class PSO():
         vector = self.params_to_vec()
         matrix = []
         for _ in range(self.pop_size):
-            matrix.append(vector.reshape(1,-1))
+            matrix.append(vector.reshape(1, -1))
         matrix = torch.cat(matrix)
         variance = torch.FloatTensor(self.pop_size, self.vec_shape).uniform_(
-                                            -self.variance, self.variance).to(device_type())
+            -self.variance, self.variance).to(device_type())
         swarm = (matrix + variance).clone().detach().requires_grad_(True)
         return swarm
 
@@ -176,7 +178,7 @@ class PSO():
         loss, _ = self.sln_cls.evaluate()
         if self.use_grad:
             grads = self.gradient(loss)
-            grads = torch.where(grads==float('nan'), torch.zeros_like(grads), grads)
+            grads = torch.where(grads == float('nan'), torch.zeros_like(grads), grads)
         else:
             grads = torch.tensor([0.])
         return loss, grads
@@ -193,7 +195,7 @@ class PSO():
             self.vec_to_params(particle)
             loss_particle, grads = self.loss_grads()
             loss_swarm.append(loss_particle)
-            grads_swarm.append(grads.reshape(1,-1))
+            grads_swarm.append(grads.reshape(1, -1))
 
         losses = torch.stack(loss_swarm).reshape(-1)
         gradients = torch.vstack(grads_swarm)
@@ -213,7 +215,7 @@ class PSO():
         idx = torch.where(self.loss_swarm < self.f_p)
 
         self.p[idx] = self.swarm[idx]
-        self.f_p[idx] = self.loss_swarm[idx].detach()     
+        self.f_p[idx] = self.loss_swarm[idx].detach()
 
     def update_g_best(self) -> None:
         """Update the *g-best* position."""
@@ -239,7 +241,7 @@ class PSO():
         r1, r2 = self.get_randoms()
 
         self.v = self.b * self.v + (1 - self.b) * (
-            self.c1 * r1 * (self.p - self.swarm) + self.c2 * r2 * (self.g_best - self.swarm))
+                self.c1 * r1 * (self.p - self.swarm) + self.c2 * r2 * (self.g_best - self.swarm))
         if self.use_grad:
             self.swarm = self.swarm + self.v - self.gradient_descent()
         else:
@@ -250,22 +252,25 @@ class PSO():
         self.vec_to_params(self.g_best)
         if self.c_decrease:
             self.update_pso_params()
-        min_loss =  torch.min(self.f_p)
+        min_loss = torch.min(self.f_p)
 
         return min_loss
 
 
 class ZO_AdaMM(torch.optim.Optimizer):
-    def __init__(self, params, input_size, gradient_mode='forward', sampler='uniform', N_samples=1, dim=2, lr=1e-3,
-                 betas=(0.9, 0.999), mu=1e-03, eps=1e-12):
+    def __init__(self, params, input_size,
+                 gradient_mode='forward', sampler='uniform',
+                 dim=2, lr=1e-3, betas=(0.9, 0.999),
+                 mu=1e-3, eps=1e-12):
 
         defaults = dict(lr=lr, betas=betas, mu=mu, eps=eps)
         super().__init__(params, defaults)
         self.input_size = input_size
         self.gradient_mode = gradient_mode
         self.sampler = sampler
-        self.N_samples = N_samples
+        self.n_samples = 1
         self.dim = dim
+        self.name = 'ZO_Adam'
 
         self.size_params = 0
         for group in self.param_groups:
@@ -279,7 +284,7 @@ class ZO_AdaMM(torch.optim.Optimizer):
 
             # Closure return the approximation for the gradient
             grad_est = closure(self.size_params, group["mu"],
-                               self.N_samples, self.input_size,
+                               self.n_samples, self.input_size,
                                self.dim, self.sampler, self.gradient_mode)
 
             for p, grad in zip(group['params'], grad_est):
@@ -305,19 +310,19 @@ class ZO_AdaMM(torch.optim.Optimizer):
                 p.data.addcdiv_(state['exp_avg'], state['exp_avg_sq'].sqrt().add_(group['eps']), value=(-group['lr']))
 
 
-
-
 class ZO_SignSGD(torch.optim.Optimizer):
-    def __init__(self, params, input_size, gradient_mode='central', sampler='normal', N_samples = 5, dim=2, lr=1e-3,
-                  mu=1e-03, eps=1e-12):
+    def __init__(self, params, input_size,
+                 gradient_mode='central', sampler='normal',
+                 n_samples=5, dim=2, lr=1e-3, mu=1e-3):
 
-        defaults = dict(lr=lr, mu=mu, eps=eps)
+        defaults = dict(lr=lr, mu=mu)
         super().__init__(params, defaults)
         self.input_size = input_size
         self.gradient_mode = gradient_mode
         self.sampler = sampler
-        self.N_samples = N_samples
+        self.n_samples = n_samples
         self.dim = dim
+        self.name = 'ZO_SignSGD'
 
         self.size_params = 0
         for group in self.param_groups:
@@ -329,7 +334,7 @@ class ZO_SignSGD(torch.optim.Optimizer):
             lr = group['lr']
             for i, param in enumerate(group['params']):
                 grad_est = closure(self.size_params, group["mu"],
-                                   self.N_samples, self.input_size,
+                                   self.n_samples, self.input_size,
                                    self.dim, self.sampler, self.gradient_mode)
 
                 param.data.add_(-lr * torch.sign(grad_est[i]))

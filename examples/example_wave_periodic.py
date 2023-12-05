@@ -137,7 +137,8 @@ if not(os.path.isdir(img_dir)):
     os.mkdir(img_dir)
 
 
-opt = ZO_SignSGD(model.parameters(), len(grid), lr = 1e-3, N_samples=4, eps = 1e-10)
+opt = ZO_SignSGD(model.parameters(), len(grid), lr = 1e-3, n_samples=4, mu=1e-2)
+
 
 model = Solver(grid, equation, model, 'NN').solve(lambda_bound=1000, verbose=True, learning_rate=1e-3, optimizer_mode=opt,
                                     eps=1e-6, tmin=1000, tmax=1e5, use_cache=False,cache_dir='../cache/',cache_verbose=True,
