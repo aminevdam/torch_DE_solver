@@ -85,7 +85,7 @@ class Boundary():
         """ Boundary conditions with derivatives (bop is not None), it can be
         in form: bcond = [bnd, bop, bval, type], 'bnd' is boundary points,
         'bval' is desired function values at 'bnd' points, 'type' should be
-        'dirichlet'. If task has several desired functions, bcond will be
+        'operator'. If task has several desired functions, bcond will be
         in form: bcond = [bnd, bop, bval, var, type] where 'var' is function
         number.
 
@@ -115,7 +115,7 @@ class Boundary():
         """ Periodic can be: periodic dirichlet (example u(x,t)=u(-x,t))
         in form: bcond = [bnd, type], [bnd, var, type]
         or periodic operator (example du(x,t)/dx=du(-x,t)/dx)
-        if from: [bnd, bop, type].
+        in form: [bnd, bop, type].
         Parameter 'bnd' is list: [b_coord1, b_coord2,..]
 
         Args:
