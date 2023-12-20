@@ -211,6 +211,7 @@ class Solver():
         model: Union[torch.Tensor, torch.nn.Module],
         mode: str,
         weak_form: Union[None, list] = None):
+
         """
         Args:
             grid (torch.Tensor): grid in (torch.cartesian_prod or torch.meshgrid) form.
@@ -511,7 +512,7 @@ class Solver():
 
                     # param + mu * eps
                     parameter_perturbation(u)
-                loss_add, _= self.sln_cls.evaluate(second_order_interactions, sampling_N, lambda_update)
+                loss_add, _ = self.sln_cls.evaluate(second_order_interactions, sampling_N, lambda_update)
 
                 # param - mu * eps
                 with torch.no_grad():
@@ -541,7 +542,7 @@ class Solver():
                 assert self.cur_loss == loss_checker
 
             return grads
-       
+
         try:
             self.optimizer.name == 'PSO'
             self.cur_loss = self.optimizer.step()
