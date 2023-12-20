@@ -1,6 +1,9 @@
 import torch
 from typing import Union, List
-from data import Domain, Conditions, Equation
+
+from tedeous.data import Domain, Conditions, Equation
+from tedeous.input_preprocessing import Operator_bcond_preproc
+
 
 class Model():
     """class for preprocessing"""
@@ -21,12 +24,25 @@ class Model():
         self.domain = domain
         self.equation = equation
         self.conditions = conditions
-    
+
     def compile(
             self,
             mode: str = 'autograd',
-            problem: str = 'forward',
-            loss: str = 'l2',
+            loss: str = 'default',
             h: float = None,
+            inner_order: str = '1',
+            boundary_order: str = '2',
             derivative_points: int = None):
-        
+
+        grid = self.domain.build(mode=mode)
+        variable_dict = self.domain.variable_dict
+        operator = self.equation.equation_lst
+        bconds = self.conditions.build(variable_dict)
+
+        equation = Operator_bcond_preproc(
+            grid,
+            operator,
+            bconds,
+            h=h,
+            inner_order=inner_order,
+            boundary_order=boundary_order)

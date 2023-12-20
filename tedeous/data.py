@@ -6,9 +6,9 @@ import numpy as np
 import sys
 import os
 
-from device import device_type, check_device
+from tedeous.device import check_device
+from tedeous.input_preprocessing import EquationMixin
 
-device = device_type()
 
 def tensor_dtype(dtype: str):
     """convert tensor to dtype format
@@ -28,12 +28,13 @@ def tensor_dtype(dtype: str):
 
     return dtype
 
+
 class Domain():
     """class for grid building
     """
     def __init__(self, type='uniform'):
         self.type = type
-        self._variable_dict = {}
+        self.variable_dict = {}
     
     def variable(
             self,
@@ -72,17 +73,18 @@ class Domain():
         Returns:
             torch.Tensor: resulting grid.
         """
-        var_lst = list(self._variable_dict.values())
+        var_lst = list(self.variable_dict.values())
         if mode in ('autograd', 'NN'):
-            if len(self._variable_dict) == 1:
-                grid = var_lst[0].reshape(-1, 1).to(device)
+            if len(self.variable_dict) == 1:
+                grid = check_device(var_lst[0].reshape(-1, 1))
             else:
-                grid = torch.cartesian_prod(*var_lst).to(device)
+                grid = check_device(torch.cartesian_prod(*var_lst))
         else:
             grid = np.meshgrid(*var_lst, indexing='ij')
-            grid = torch.tensor(np.array(grid)).to(device)
+            grid = check_device(torch.tensor(np.array(grid)))
 
         return grid
+
 
 class Conditions():
     """class for adding the conditions: initial, boundary, and data.
@@ -90,40 +92,9 @@ class Conditions():
     def __init__(self):
         self.conditions_lst = []
 
-    def _bnd_value_check(
-            self,
-            bnd,
-            value = None):
-        """ check device and tensor format for inputs.
-
-        Args:
-            bnd: variants of bnd for all conditions
-            value:conditions value. Defaults to None.
-
-        Returns:
-            tuple(bnd, value): checked bnd and value
-        """
-
-        if isinstance(bnd, torch.Tensor):
-            bnd = check_device(bnd)
-
-        elif isinstance(bnd, list):
-            for i, val in enumerate(bnd):
-                if isinstance(val, torch.Tensor):
-                    bnd[i] = check_device(val)
-
-        if isinstance(value, torch.Tensor):
-            value = check_device(value)
-
-        if isinstance(value, (float, int)):
-            value = torch.tensor([value])
-            value = check_device(value)
-
-        return bnd, value
-
     def dirichlet(
             self,
-            bnd: Union[torch.Tensor, dict],
+            bnd: dict,
             value: Union[callable, torch.Tensor, float],
             var: int = 0):
         """ determine dirichlet boundary condition.
@@ -134,16 +105,15 @@ class Conditions():
             value (Union[callable, torch.Tensor, float]): values at the boundary (bnd)
             var (int, optional): variable for system case, for single equation is 0. Defaults to 0.
         """
-        bnd, value = self._bnd_value_check(bnd, value=value)
-        
+
         self.conditions_lst.append({'bnd': bnd,
-                                    'operator': None,
-                                    'value': value,
+                                    'bop': None,
+                                    'bval': value,
                                     'var': var,
                                     'type': 'dirichlet'})
 
     def operator(self,
-                 bnd: Union[torch.Tensor, dict],
+                 bnd: dict,
                  operator: dict,
                  value: Union[callable, torch.Tensor, float]):
         """ determine operator boundary condition
@@ -154,21 +124,19 @@ class Conditions():
             operator (dict): dictionary with opertor terms: {'operator name':{coeff, term, pow, var}}
             value (Union[callable, torch.Tensor, float]): value on the boundary (bnd).
         """
-        bnd, value = self._bnd_value_check(bnd, value=value)
-
         try:
             var = operator[operator.keys()[0]]['var']
         except:
             var = 0
-
+        operator = EquationMixin.equation_unify(operator)
         self.conditions_lst.append({'bnd': bnd,
-                                    'operator': operator,
-                                    'value': value,
+                                    'bop': operator,
+                                    'bval': value,
                                     'var': var,
                                     'type': 'operator'})
 
     def periodic(self,
-                 bnd: Union[List[torch.Tensor], List[dict]],
+                 bnd: List[dict],
                  operator: dict = None,
                  var: int = 0):
         """Periodic can be: periodic dirichlet (example u(x,t)=u(-x,t))
@@ -183,12 +151,11 @@ class Conditions():
             operator (dict, optional): operator dict. Defaults to None.
             var (int, optional): variable for system case and periodic dirichlet. Defaults to 0.
         """
-        bnd, value = self._bnd_value_check(bnd)
-
+        value = torch.tensor([0.])
         if operator is None:
             self.conditions_lst.append({'bnd': bnd,
-                                        'operator': operator,
-                                        'value': value,
+                                        'bop': operator,
+                                        'bval': value,
                                         'var': var,
                                         'type': 'periodic'})
         else:
@@ -196,15 +163,16 @@ class Conditions():
                 var = operator[operator.keys()[0]]['var']
             except:
                 var = 0
+            operator = EquationMixin.equation_unify(operator)
             self.conditions_lst.append({'bnd': bnd,
-                                        'operator': operator,
-                                        'value': value,
+                                        'bop': operator,
+                                        'bval': value,
                                         'var': var,
                                         'type': 'periodic'})
 
     def data(
         self,
-        bnd: Union[torch.Tensor, dict],
+        bnd: dict,
         operator: Union[dict, None],
         value: torch.Tensor,
         var: int = 0):
@@ -217,25 +185,55 @@ class Conditions():
             value (Union[torch.Tensor, float]): values at the boundary (bnd)
             var (int, optional): variable for system case and periodic dirichlet. Defaults to 0.
         """
-
-        bnd, value = self._bnd_value_check(bnd, value=value)
-        
+        if operator is not None:
+            operator = EquationMixin.equation_unify(operator)
         self.conditions_lst.append({'bnd': bnd,
-                                    'operator': operator,
-                                    'value': value,
+                                    'bop': operator,
+                                    'bval': value,
                                     'var': var,
                                     'type': 'data'})
 
-    def _build_one_bnd(self, cond, grid, var_lst):
-        dtype = grid.dtype
-        if isinstance(cond['bnd'], torch.Tensor):
-            cond['bnd'] = cond['bnd'].to(dtype)
-        elif isinstance(cond['bnd'], dict):
-            
-            
+    def _bnd_grid(self, bnd, variable_dict, dtype):
+        dtype = variable_dict[list(variable_dict.keys())[0]].dtype
+        var_lst = []
+        for var in variable_dict.keys():
+            if isinstance(bnd[var], torch.Tensor):
+                var_lst.append(check_device(bnd[var]).to(dtype))
+            elif isinstance(bnd[var], (float, int)):
+                var_lst.append(check_device(torch.tensor([bnd[var]])).to(dtype))
+            elif isinstance(bnd[var], list):
+                lower_bnd = bnd[var][0]
+                upper_bnd = bnd[var][1]
+                grid_var = variable_dict[var]
+                bnd_var = grid_var[(grid_var >= lower_bnd) & (grid_var <= upper_bnd)]
+                var_lst.append(check_device(bnd_var).to(dtype))
+        bnd_grid = torch.cartesian_prod(*var_lst).to(dtype)
+        return bnd_grid
 
+    def build(self, variable_dict):
+        if self.conditions_lst == []:
+            return None
 
-                    
+        try:
+            dtype = variable_dict[list(variable_dict.keys())[0]].dtype
+        except:
+            dtype = variable_dict[list(variable_dict.keys())[0]][0].dtype # if periodic
+
+        for cond in self.conditions_lst:
+            if cond['type'] == 'periodic':
+                cond_lst = []
+                for bnd in cond['bnd']:
+                    cond_lst.append(self._bnd_grid(bnd, variable_dict, dtype))
+                cond['bnd'] = cond_lst
+            else:
+                cond['bnd'] = self._bnd_grid(cond['bnd'], variable_dict, dtype)
+            
+            if isinstance(cond['bval'], torch.Tensor):
+                cond['bval'] = check_device(cond['bval']).to(dtype)
+            elif isinstance(cond['bval'], (float, int)):
+                cond['bval'] = check_device(torch.tensor([cond['bval']])).to(dtype)
+        
+        return self.conditions_lst
 
 
 class Equation():
@@ -251,27 +249,3 @@ class Equation():
             eq (dict): equation in operator form.
         """
         self.equation_lst.append(eq)
-
-# domain = Domain()
-
-# domain.variable('x', [0,1], 10)
-# domain.variable('t', [1,2], 5)
-
-# grid = domain.build('NN')
-
-# boundaries = Conditions()
-
-# bop= {
-#         'du/dx':
-#             {
-#                 'coeff': 1,
-#                 'du/dx': [0],
-#                 'pow': 1,
-#                 'var': 0
-#             }
-# }
-
-# # boundaries.operator({'x':0, 't': [0,1]}, operator=bop, value=5)
-# boundaries.periodic([{'x':0, 't':[0,1]}, {'x':1, 't':[0,1]}], bop)
-
-# print(boundaries.conditions_lst)
