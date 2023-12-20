@@ -242,7 +242,7 @@ class Equation():
     def __init__(self):
         self.equation_lst = []
     
-    def equation(self, eq: dict):
+    def add(self, eq: dict):
         """ add equation
 
         Args:

@@ -3,6 +3,7 @@ from typing import Union, List
 
 from tedeous.data import Domain, Conditions, Equation
 from tedeous.input_preprocessing import Operator_bcond_preproc
+from tedeous.solution import Solution
 
 
 class Model():
@@ -39,10 +40,15 @@ class Model():
         operator = self.equation.equation_lst
         bconds = self.conditions.build(variable_dict)
 
-        equation = Operator_bcond_preproc(
+        equation_cls = Operator_bcond_preproc(
             grid,
             operator,
             bconds,
             h=h,
             inner_order=inner_order,
-            boundary_order=boundary_order)
+            boundary_order=boundary_order).set_strategy(mode)
+        
+        return equation_cls
+
+    def train(self):
+        pass
