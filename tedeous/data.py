@@ -1,4 +1,4 @@
-"""module for working with initial data as: x,y,..t and available experiments data"""
+"""module for working with inerface for initialize grid, conditions and equation"""
 
 from typing import List, Union
 import torch
@@ -6,11 +6,27 @@ import numpy as np
 import sys
 import os
 
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname( __file__ ), '..')))
-
 from device import device_type, check_device
 
 device = device_type()
+
+def tensor_dtype(dtype: str):
+    """convert tensor to dtype format
+
+    Args:
+        dtype (str): dtype
+
+    Returns:
+        dtype: torch.dtype
+    """
+    if dtype == 'float32':
+        dtype = torch.float32
+    elif dtype == 'float64':
+        dtype = torch.float64
+    elif dtype == 'float16':
+        dtype = torch.float16
+
+    return dtype
 
 class Domain():
     """class for grid building
@@ -34,22 +50,18 @@ class Domain():
             dtype (str, optional): dtype of result vector. Defaults to 'float32'.
 
         """
-        if dtype == 'float32':
-            dtype = torch.float32
-        elif dtype == 'float64':
-            dtype = torch.float64
-        elif dtype == 'float16':
-            dtype = torch.float16
+        dtype = tensor_dtype(dtype)
 
         if isinstance(variable_set, torch.Tensor):
+            variable_tensor = check_device(variable_tensor)
             variable_tensor = variable_set.to(dtype)
-            self._variable_dict[variable_name] = variable_tensor
+            self.variable_dict[variable_name] = variable_tensor
         else:
             if self.type == 'uniform':
                 n_points = n_points + 1
                 start, end = variable_set
                 variable_tensor = torch.linspace(start, end, n_points, dtype=dtype)
-                self._variable_dict[variable_name] = variable_tensor
+                self.variable_dict[variable_name] = variable_tensor
     
     def build(self, mode: str) -> torch.Tensor:
         """ building the grid for algorithm
@@ -73,24 +85,38 @@ class Domain():
         return grid
 
 class Conditions():
+    """class for adding the conditions: initial, boundary, and data.
+    """
     def __init__(self):
         self.conditions_lst = []
 
-    def bnd_value_check(self, bnd, value=None):
+    def _bnd_value_check(
+            self,
+            bnd,
+            value = None):
+        """ check device and tensor format for inputs.
+
+        Args:
+            bnd: variants of bnd for all conditions
+            value:conditions value. Defaults to None.
+
+        Returns:
+            tuple(bnd, value): checked bnd and value
+        """
 
         if isinstance(bnd, torch.Tensor):
             bnd = check_device(bnd)
 
         elif isinstance(bnd, list):
-            for i, value in enumerate(bnd):
-                if isinstance(value, torch.Tensor):
-                    bnd[i] = check_device(value)
+            for i, val in enumerate(bnd):
+                if isinstance(val, torch.Tensor):
+                    bnd[i] = check_device(val)
 
         if isinstance(value, torch.Tensor):
             value = check_device(value)
 
-        if isinstance(value, float):
-            value = torch.Tensor([value])
+        if isinstance(value, (float, int)):
+            value = torch.tensor([value])
             value = check_device(value)
 
         return bnd, value
@@ -108,7 +134,7 @@ class Conditions():
             value (Union[callable, torch.Tensor, float]): values at the boundary (bnd)
             var (int, optional): variable for system case, for single equation is 0. Defaults to 0.
         """
-        bnd, value = self.bnd_value_check(bnd, value=value)
+        bnd, value = self._bnd_value_check(bnd, value=value)
         
         self.conditions_lst.append({'bnd': bnd,
                                     'operator': None,
@@ -128,7 +154,7 @@ class Conditions():
             operator (dict): dictionary with opertor terms: {'operator name':{coeff, term, pow, var}}
             value (Union[callable, torch.Tensor, float]): value on the boundary (bnd).
         """
-        bnd, value = self.bnd_value_check(bnd, value=value)
+        bnd, value = self._bnd_value_check(bnd, value=value)
 
         try:
             var = operator[operator.keys()[0]]['var']
@@ -136,7 +162,7 @@ class Conditions():
             var = 0
 
         self.conditions_lst.append({'bnd': bnd,
-                                    'operator': None,
+                                    'operator': operator,
                                     'value': value,
                                     'var': var,
                                     'type': 'operator'})
@@ -155,9 +181,9 @@ class Conditions():
         Args:
             bnd (Union[List[torch.Tensor], List[dict]]): list with dicionaries or torch.Tensors
             operator (dict, optional): operator dict. Defaults to None.
-            var (int, optional): variable for system case and periodic dirichlet. Defaults to None.
+            var (int, optional): variable for system case and periodic dirichlet. Defaults to 0.
         """
-        bnd, value = self.bnd_value_check(bnd)
+        bnd, value = self._bnd_value_check(bnd)
 
         if operator is None:
             self.conditions_lst.append({'bnd': bnd,
@@ -176,7 +202,76 @@ class Conditions():
                                         'var': var,
                                         'type': 'periodic'})
 
-    def data(self, bnd, operator, value, var):
-        pass
+    def data(
+        self,
+        bnd: Union[torch.Tensor, dict],
+        operator: Union[dict, None],
+        value: torch.Tensor,
+        var: int = 0):
+        """ conditions for available solution data
 
-dirichlet({'x': 0., 't': [0,1]})
+        Args:
+            bnd (Union[torch.Tensor, dict]): boundary points can be torch.Tensor
+            or dict with keys as coordinates names and values as coordinates values or list(start, end)
+            operator (Union[dict, None]): dictionary with opertor terms: {'operator name':{coeff, term, pow, var}}
+            value (Union[torch.Tensor, float]): values at the boundary (bnd)
+            var (int, optional): variable for system case and periodic dirichlet. Defaults to 0.
+        """
+
+        bnd, value = self._bnd_value_check(bnd, value=value)
+        
+        self.conditions_lst.append({'bnd': bnd,
+                                    'operator': operator,
+                                    'value': value,
+                                    'var': var,
+                                    'type': 'data'})
+
+    def _build_one_bnd(self, cond, grid, var_lst):
+        dtype = grid.dtype
+        if isinstance(cond['bnd'], torch.Tensor):
+            cond['bnd'] = cond['bnd'].to(dtype)
+        elif isinstance(cond['bnd'], dict):
+            
+            
+
+
+                    
+
+
+class Equation():
+    """class for adding eqution.
+    """
+    def __init__(self):
+        self.equation_lst = []
+    
+    def equation(self, eq: dict):
+        """ add equation
+
+        Args:
+            eq (dict): equation in operator form.
+        """
+        self.equation_lst.append(eq)
+
+# domain = Domain()
+
+# domain.variable('x', [0,1], 10)
+# domain.variable('t', [1,2], 5)
+
+# grid = domain.build('NN')
+
+# boundaries = Conditions()
+
+# bop= {
+#         'du/dx':
+#             {
+#                 'coeff': 1,
+#                 'du/dx': [0],
+#                 'pow': 1,
+#                 'var': 0
+#             }
+# }
+
+# # boundaries.operator({'x':0, 't': [0,1]}, operator=bop, value=5)
+# boundaries.periodic([{'x':0, 't':[0,1]}, {'x':1, 't':[0,1]}], bop)
+
+# print(boundaries.conditions_lst)
