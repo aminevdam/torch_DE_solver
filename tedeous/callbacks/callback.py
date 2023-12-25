@@ -45,7 +45,7 @@ class Callback(ABC):
     def model(self):
         return self._model
 
-    def on_epoch_begin(self, epoch, logs=None):
+    def on_epoch_begin(self, logs=None):
         """Called at the start of an epoch.
 
         Subclasses should override for any actions to run. This function should
@@ -56,8 +56,9 @@ class Callback(ABC):
             logs: Dict. Currently no data is passed to this argument for this
               method but that may change in the future.
         """
+        pass
 
-    def on_epoch_end(self, epoch, logs=None):
+    def on_epoch_end(self, logs=None):
         """Called at the end of an epoch.
 
         Subclasses should override for any actions to run. This function should
@@ -71,6 +72,7 @@ class Callback(ABC):
               the `Model`'s metrics are returned. Example:
               `{'loss': 0.2, 'accuracy': 0.7}`.
         """
+        pass
 
     def on_train_begin(self, logs=None):
         """Called at the beginning of training.
@@ -81,6 +83,7 @@ class Callback(ABC):
             logs: Dict. Currently no data is passed to this argument for this
               method but that may change in the future.
         """
+        pass
 
     def on_train_end(self, logs=None):
         """Called at the end of training.
@@ -92,3 +95,4 @@ class Callback(ABC):
               `on_epoch_end()` is passed to this argument for this method but
               that may change in the future.
         """
+        pass
