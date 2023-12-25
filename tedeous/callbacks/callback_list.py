@@ -4,12 +4,9 @@ import tree
 
 class CallbackList(Callback):
     """Container abstracting a list of callbacks."""
-
     def __init__(
         self,
         callbacks=None,
-        add_history=False,
-        add_progbar=False,
         model=None,
         **params,
     ):
@@ -36,7 +33,10 @@ class CallbackList(Callback):
         if params:
             self.set_params(params)
 
-
+    def set_model(self, model):
+        super().set_model(model)
+        for callback in self.callbacks:
+            callback.set_model(model)
 
     def append(self, callback):
         self.callbacks.append(callback)
@@ -46,15 +46,15 @@ class CallbackList(Callback):
         for callback in self.callbacks:
             callback.set_params(params)
 
-    def on_epoch_begin(self, epoch, logs=None):
+    def on_epoch_begin(self, logs=None):
         logs = logs or {}
         for callback in self.callbacks:
-            callback.on_epoch_begin(epoch, logs)
+            callback.on_epoch_begin( logs)
 
-    def on_epoch_end(self, epoch, logs=None):
+    def on_epoch_end(self, logs=None):
         logs = logs or {}
         for callback in self.callbacks:
-            callback.on_epoch_end(epoch, logs)
+            callback.on_epoch_end(logs)
 
     def on_train_begin(self, logs=None):
         logs = logs or {}

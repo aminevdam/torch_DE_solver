@@ -14,7 +14,8 @@ import torch
 from tedeous.device import check_device, device_type, solver_device
 from tedeous.solution import Solution
 from tedeous.optimizers import PSO
-from tedeous.cache import CacheUtils, create_random_fn, Cache
+from tedeous.cache import CacheUtils, Cache
+from tedeous.utils import create_random_fn
 
 
 def grid_format_prepare(
@@ -706,6 +707,7 @@ class Solver():
         self.sln_cls = Solution(self.grid, self.equal_cls,
                            self.model, self.mode, self.weak_form,
                            lambda_operator, lambda_bound, tol, derivative_points)
+
         with torch.autocast(device_type=self.device, dtype=dtype, enabled=mixed_precision):
             min_loss, _ = self.sln_cls.evaluate()
 
