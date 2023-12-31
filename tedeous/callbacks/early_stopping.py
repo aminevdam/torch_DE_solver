@@ -39,7 +39,7 @@ class EarlyStopping(Callback):
             if abs(self._line[0] / self.cur_loss) < self.eps and self.t > 0:
                 self._stop_dings += 1
                 if self.mode in ('NN', 'autograd'):
-                    self.model.apply(self.model._r)
+                    self.model.net.apply(self.model._r)
                 self._check = 'window_check'
 
     def _patience_check(self):
@@ -54,7 +54,7 @@ class EarlyStopping(Callback):
             self._t_imp_start = self.t
             self._stop_dings += 1
             if self.mode in ('NN', 'autograd'):
-                self.model.apply(self.model._r)
+                self.model.net.apply(self.model._r)
             self._check = 'patience_check'
 
     def _absloss_check(self):

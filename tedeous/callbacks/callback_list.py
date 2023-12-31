@@ -8,6 +8,8 @@ class CallbackList(Callback):
         self,
         callbacks=None,
         model=None,
+        verbose = 0,
+        print_every = 0,
         **params,
     ):
         """Container for `Callback` instances.

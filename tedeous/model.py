@@ -2,12 +2,17 @@ import torch
 from typing import Union, List
 
 from tedeous.data import Domain, Conditions, Equation
-from tedeous.input_preprocessing import Operator_bcond_preproc
-from tedeous.solution import Solution
-
+from tedeous.input_preprocessing import InitialDataProcessor, lambda_prepare
+from tedeous.eval import Operator, Bounds
+from tedeous.points_type import Points_type
+from tedeous.utils import create_random_fn
+from tedeous.losses import Losses
+from tedeous.callbacks import CallbackList
+from tedeous.device import check_device, solver_device, device_type
 
 class Model():
     """class for preprocessing"""
+
     def __init__(
             self,
             net: Union[torch.nn.Module, torch.Tensor],
@@ -26,29 +31,135 @@ class Model():
         self.equation = equation
         self.conditions = conditions
 
+    def _compile_nn(self, **params):
+        self.h = params.get('h', None)
+        self.inner_order = params.get('inner_order', '1')
+        self.boundary_order = params.get('boundary_order', '2')
+        sorted_grid = Points_type(self.grid).grid_sort()
+        self.n_t = len(sorted_grid['central'][:, 0].unique())
+
+    def _compile_mat(self, **params):
+        self.derivative_points = params.get('derivative_points', None)
+        self.n_t = self.grid.shape[1]
+
+    def _compile_autograd(self, **params):
+        self.n_t = len(self.grid[:, 0].unique())
+
+    def _prepare_operator(self, equation_cls, mode, weak_form):
+        prepared_op = equation_cls.operator_prepare()
+        self.operator = Operator(self.grid, prepared_op, self.net,
+                                 mode, weak_form, self.derivative_points)
+
+    def _prepare_boundary(self, equation_cls, mode, weak_form):
+        prepared_bcs = equation_cls.bnd_prepare()
+
+        self.boundary = Bounds(self.grid, prepared_bcs, self.net,
+                               mode, weak_form, self.derivative_points)
+
+    def _prepare_lambda(self, lambda_):
+        with torch.no_grad():
+            op = self.operator.operator_compute()
+            bval, _, _, _ = self.boundary.apply_bcs()
+        self.lambda_operator = lambda_prepare(op, lambda_[0])
+        self.lambda_bound = lambda_prepare(bval, lambda_[1])
+
+    def _loss_parameters(self, **params):
+        self.tol = params.get('tol', 0)
+        self.weak_form = params.get('weak_form', None)
+
+    def _misc_parameters(self, **params):
+        model_randomize_parameter = params.get('model_randomize_parameter', 0.01)
+
+        self._r = create_random_fn(model_randomize_parameter)
+        self.save_graph = params.get('save_graph', False)
+        self.lambda_operator = params.get('lambda_operator', 1)
+        self.lambda_bound = params.get('lambda_bound', 100)
+        self.normalized_loss_stop = params.get('normalized_loss_stop', False)
+
+    def _set_solver_device(self, device):
+        solver_device(device)
+        self.grid = check_device(self.grid)
+        self.net = self.net.to(device_type())
+
     def compile(
             self,
             mode: str = 'autograd',
-            loss: str = 'default',
-            h: float = None,
-            inner_order: str = '1',
-            boundary_order: str = '2',
-            derivative_points: int = None):
+            **params):
+        """
+        
+        Args:
+            mode: 
+            loss: 
+            h: 
+            inner_order:
+            boundary_order: 
+            derivative_points:
+            **params: 
 
-        grid = self.domain.build(mode=mode)
+        Returns:
+
+        """
+        self._loss_parameters(**params)
+        self._misc_parameters(**params)
+
+        if mode == 'NN':
+            self._compile_nn(**params)
+        elif mode == 'autograd':
+            self._compile_autograd(**params)
+        elif mode == 'mat':
+            self._compile_mat(**params)
+
+        self.grid = self.domain.build(mode=mode)
         variable_dict = self.domain.variable_dict
         operator = self.equation.equation_lst
         bconds = self.conditions.build(variable_dict)
 
-        equation_cls = Operator_bcond_preproc(
-            grid,
+        equation_cls = InitialDataProcessor(
+            self.grid,
             operator,
             bconds,
-            h=h,
-            inner_order=inner_order,
-            boundary_order=boundary_order).set_strategy(mode)
-        
-        return equation_cls
+            h=self.h,
+            inner_order=self.inner_order,
+            boundary_order=self.boundary_order).set_strategy(mode)
 
-    def train(self):
-        pass
+        self._prepare_operator(equation_cls, mode, self.weak_form)
+        self._prepare_boundary(equation_cls, mode, self.weak_form)
+        self._prepare_lambda([self.lambda_operator, self.lambda_bound])
+
+        self.loss_cls = Losses(mode, self.weak_form, self.n_t, self.tol)
+
+    def train(self,
+              optimizer,
+              epochs,
+              verbose,
+              print_every,
+              device,
+              mixed_precision,
+              callbacks):
+        self.optimizer = optimizer
+        self._set_solver_device(device)
+
+        callbacks = CallbackList(callbacks=callbacks, verbose=verbose, print_every=print_every, model=self)
+        callbacks.on_train_begin()
+
+        self.t = 0
+        self.stop_training = False
+
+        while self.t < epochs:
+            callbacks.on_epoch_begin()
+            optimizer.zero_grad()
+            op = self.operator.operator_compute()
+            bval, true_bval, bval_keys, bval_length = self.boundary.apply_bcs()
+
+            loss, loss_normalized = self.loss_cls.compute(op, bval, true_bval,
+                                                          self.lambda_operator,
+                                                          self.lambda_bound,
+                                                          self.save_graph)
+            loss.backward()
+            optimizer.step()
+
+            callbacks.on_epoch_end()
+            if self.stop_training:
+                break
+
+        callbacks.on_train_end()
