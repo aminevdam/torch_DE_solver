@@ -10,21 +10,13 @@ class OptimizerStep:
     def __init__(self,
         mixed_precision: bool,
         model,
-        # dtype: Any,
-        # second_order_interactions: bool,
-        # sampling_N: int,
-        # lambda_update: bool,
-        # normalized_loss_stop: bool,
                  **params):
 
-
-        self.mixed_precision = mixed_precision
-        self.second_order_interactions = params.get('second_order_interactions', True)
-        self.sampling_N = params.get('sampling_N', 1)
 
         self.set_model(model)
         self.optimizer = self.model.optimizer
         self.normalized_loss_stop = self.model.normalized_loss_stop
+        self.mixed_precision = mixed_precision
 
     def set_model(self, model):
         self._model = model
@@ -32,6 +24,7 @@ class OptimizerStep:
     @property
     def model(self):
         return self._model
+
     def _amp_mixed(self, mixed_precision: bool):
         """ Preparation for mixed precsion operations.
 
@@ -57,28 +50,16 @@ class OptimizerStep:
     def _closure_default(self):
         self.optimizer.zero_grad()
         with torch.autocast(device_type=self.model.device, dtype=self.dtype, enabled=self.mixed_precision):
-            op = self.model.operator.operator_compute()
-            bval, true_bval, bval_keys, bval_length = self.model.boundary.apply_bcs()
-
-            loss, loss_normalized = self.model.loss_cls.compute(op, bval, true_bval,
-                                                                self.model.lambda_operator,
-                                                                self.model.lambda_bound,
-                                                                self.model.save_graph)
+            loss, loss_normalized = self.model.solution_cls.evaluate()
 
         loss.backward()
-        self.cur_loss = loss_normalized if self.normalized_loss_stop else loss
+        self.cur_loss = loss_normalized if self.model.normalized_loss_stop else loss
         return loss
 
     def _closure_cuda(self):
         self.optimizer.zero_grad()
         with torch.autocast(device_type=self.model.device, dtype=self.dtype, enabled=self.mixed_precision):
-            op = self.model.operator.operator_compute()
-            bval, true_bval, bval_keys, bval_length = self.model.boundary.apply_bcs()
-
-            loss, loss_normalized = self.model.loss_cls.compute(op, bval, true_bval,
-                                                          self.model.lambda_operator,
-                                                          self.model.lambda_bound,
-                                                          self.model.save_graph)
+            loss, loss_normalized = self.model.solution_cls.evaluate()
 
         self.scaler.scale(loss).backward()
         self.scaler.step(self.optimizer)
@@ -108,7 +89,9 @@ class OptimizerStep:
             return grad_est
 
         grads = [torch.zeros_like(param) for param in model_parameters]
-        self.cur_loss, _ = self.sln_cls.evaluate(second_order_interactions, sampling_N, lambda_update)
+        self.cur_loss, _ = self.model.solution_cls.evaluate(self.model.second_order_interactions,
+                                                            self.model.sampling_N,
+                                                            self.model.lambda_update)
 
         for _ in range(N_samples):
             with torch.no_grad():
@@ -122,12 +105,18 @@ class OptimizerStep:
 
                 # param + mu * eps
                 parameter_perturbation(u)
-            loss_add, _ = self.sln_cls.evaluate(second_order_interactions, sampling_N, lambda_update)
+
+            loss_add, _ = self.model.solution_cls.evaluate(self.model.second_order_interactions,
+                                                            self.model.sampling_N,
+                                                            self.model.lambda_update)
 
             # param - mu * eps
             with torch.no_grad():
                 parameter_perturbation(-2 * u)
-            loss_sub, _ = self.sln_cls.evaluate(second_order_interactions, sampling_N, lambda_update)
+
+            loss_sub, _ = self.model.solution_cls.evaluate(self.model.second_order_interactions,
+                                                            self.model.sampling_N,
+                                                            self.model.lambda_update)
 
             with torch.no_grad():
                 if gradient_mode == 'central':
@@ -148,7 +137,16 @@ class OptimizerStep:
             # load initial model parameters
             self.model.load_state_dict(init_model_parameters)
 
-            loss_checker, _ = self.sln_cls.evaluate(second_order_interactions, sampling_N, lambda_update)
+            loss_checker, _ = self.model.solution_cls.evaluate(self.model.second_order_interactions,
+                                                            self.model.sampling_N,
+                                                            self.model.lambda_update)
             assert self.cur_loss == loss_checker
 
         return grads
+
+    def step(self):
+        if self.mixed_precision:
+            return self._closure_cuda
+        elif self.optimizer.optimizer == 'ZO':
+            return self._closure_zo
+        return self._closure_default

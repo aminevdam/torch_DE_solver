@@ -1,14 +1,17 @@
 import torch
 from typing import Union, List
 
+from tedeous.callbacks import Callback
 from tedeous.data import Domain, Conditions, Equation
 from tedeous.input_preprocessing import InitialDataProcessor, lambda_prepare
 from tedeous.eval import Operator, Bounds
 from tedeous.points_type import Points_type
 from tedeous.utils import create_random_fn
-from tedeous.losses import Losses
+
 from tedeous.callbacks import CallbackList
 from tedeous.device import check_device, solver_device, device_type
+from tedeous.solution import Solution
+from tedeous.optimizers import OptimizerStep, Optimizer
 
 class Model():
     """class for preprocessing"""
@@ -89,12 +92,7 @@ class Model():
         
         Args:
             mode: 
-            loss: 
-            h: 
-            inner_order:
-            boundary_order: 
-            derivative_points:
-            **params: 
+
 
         Returns:
 
@@ -122,22 +120,24 @@ class Model():
             inner_order=self.inner_order,
             boundary_order=self.boundary_order).set_strategy(mode)
 
-        self._prepare_operator(equation_cls, mode, self.weak_form)
-        self._prepare_boundary(equation_cls, mode, self.weak_form)
-        self._prepare_lambda([self.lambda_operator, self.lambda_bound])
+        self.solution_cls = Solution(self.grid, equation_cls, self.net, mode, self.weak_form,
+                                     self.lambda_operator, self.lambda_bound, self.tol, self.derivative_points)
 
-        self.loss_cls = Losses(mode, self.weak_form, self.n_t, self.tol)
 
     def train(self,
-              optimizer,
-              epochs,
-              verbose,
-              print_every,
-              device,
-              mixed_precision,
-              callbacks):
-        self.optimizer = optimizer
+              optimizer: Optimizer,
+              callbacks: List[Callback],
+              epochs: int = 10000,
+              verbose: int = 0 ,
+              print_every: Union[None, int] = None,
+              device: str = 'cpu',
+              mixed_precision: bool = False):
+
+        self.optimizer = optimizer.set_optimizer()
         self._set_solver_device(device)
+
+        opt_step = OptimizerStep(mixed_precision, self)
+        closure = opt_step.step()
 
         callbacks = CallbackList(callbacks=callbacks, verbose=verbose, print_every=print_every, model=self)
         callbacks.on_train_begin()
@@ -147,18 +147,11 @@ class Model():
 
         while self.t < epochs:
             callbacks.on_epoch_begin()
-            optimizer.zero_grad()
-            op = self.operator.operator_compute()
-            bval, true_bval, bval_keys, bval_length = self.boundary.apply_bcs()
 
-            loss, loss_normalized = self.loss_cls.compute(op, bval, true_bval,
-                                                          self.lambda_operator,
-                                                          self.lambda_bound,
-                                                          self.save_graph)
-            loss.backward()
-            optimizer.step()
+            self.optimizer.step(closure)
 
             callbacks.on_epoch_end()
+
             if self.stop_training:
                 break
 
