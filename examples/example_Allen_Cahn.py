@@ -12,10 +12,8 @@ from tedeous.data import Domain, Conditions, Equation
 from tedeous.model import Model
 from tedeous.callbacks import Cache, EarlyStopping, Plots
 from tedeous.optimizers.optimizer import Optimizer
-from tedeous.device import solver_device
 from tedeous.models import Fourier_embedding
 
-solver_device('gpu')
 
 # if the casual_loss is used the time parameter must be
 # at the first place in the grid
@@ -119,4 +117,4 @@ cb_plots = Plots(save_every=1000, print_every=None, img_dir=img_dir)
 
 optimizer = Optimizer(model=net, optimizer_type='Adam', learning_rate=1e-3, gamma=0.9, decay_every=1000)
 
-model.train(optimizer=optimizer, epochs=1e5, save_model=True, callbacks=[cb_cache, cb_es, cb_plots])
+model.train(optimizer=optimizer, epochs=1e5, save_model=True, device='cuda', callbacks=[cb_cache, cb_es, cb_plots])

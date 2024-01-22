@@ -9,11 +9,8 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname( __file__ ), '..'))
 
 from tedeous.data import Domain, Conditions, Equation
 from tedeous.model import Model
-from tedeous.callbacks import EarlyStopping, Plots, cache
+from tedeous.callbacks import EarlyStopping, Plots, Cache
 from tedeous.optimizers.optimizer import Optimizer
-from tedeous.device import solver_device
-
-solver_device('cpu')
 
 p_l = 1
 v_l = 0
@@ -194,4 +191,4 @@ cb_plots = Plots(save_every=100, print_every=None, img_dir=img_dir)
 
 optimizer = Optimizer(model=net, optimizer_type='Adam', learning_rate= 1e-3)
 
-model.train(optimizer=optimizer, epochs=1e5, save_model=False, callbacks=[cb_es, cb_plots])
+model.train(optimizer=optimizer, epochs=1e5, save_model=False, device='cuda', callbacks=[cb_es, cb_plots])

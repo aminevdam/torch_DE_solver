@@ -23,9 +23,6 @@ from tedeous.data import Domain, Conditions, Equation
 from tedeous.model import Model
 from tedeous.callbacks import EarlyStopping,Plots, Cache
 from tedeous.optimizers.optimizer import Optimizer
-from tedeous.device import solver_device
-
-solver_device('cpu')
 
 alpha = 20.
 beta = 20.
@@ -138,7 +135,7 @@ def Lotka_experiment(grid_res, CACHE):
         callbacks = [cb_es, cb_plots]
 
     start = time.time()
-    model.train(optimizer=optimizer, epochs=5e6, save_model=CACHE, callbacks=callbacks)
+    model.train(optimizer=optimizer, epochs=5e6, save_model=CACHE, device='cpu', callbacks=callbacks)
 
     end = time.time()
     

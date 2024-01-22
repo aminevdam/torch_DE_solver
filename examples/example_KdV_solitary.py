@@ -15,12 +15,10 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname( __file__ ), '..'))
 
 from tedeous.data import Domain, Conditions, Equation
 from tedeous.model import Model
-from tedeous.callbacks import Cache, EarlyStopping, plot
+from tedeous.callbacks import Cache, EarlyStopping, Plots
 from tedeous.optimizers.optimizer import Optimizer
-from tedeous.device import solver_device, check_device, device_type
+from tedeous.device import check_device, device_type
 
-
-solver_device('gpu')
 
 exp_dict_list=[]
 
@@ -208,7 +206,7 @@ for grid_res in [30,50,100]:
 
         optimizer = Optimizer(model=net, optimizer_type='Adam', learning_rate= 1e-4)
 
-        model.train(optimizer=optimizer, epochs=1e5, save_model=True, callbacks=[cb_es, cb_cache, cb_plots])
+        model.train(optimizer=optimizer, epochs=1e5, save_model=True, device='cuda', callbacks=[cb_es, cb_cache, cb_plots])
 
         end = time.time()
         

@@ -6,14 +6,12 @@ import os
 import time
 
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'TRUE'
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname( __file__ ), '..')))
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from tedeous.data import Domain, Conditions, Equation
 from tedeous.model import Model
-from tedeous.callbacks import EarlyStopping, plot, cache
+from tedeous.callbacks import EarlyStopping, Plots, Cache
 from tedeous.optimizers.optimizer import Optimizer
-from tedeous.device import solver_device
-
 
 devices = ['cpu', 'cuda']
 mixed_precision = [True, False]
@@ -27,7 +25,6 @@ result = {
 
 
 def experiment(device):
-    solver_device(device)
     grid_res = 50
 
     domain = Domain()
@@ -114,36 +111,38 @@ def experiment(device):
 
     start = time.time()
 
-    model =  Model(net, domain, equation, boundaries)
+    model = Model(net, domain, equation, boundaries)
 
     model.compile("NN", lambda_operator=1, lambda_bound=1000, h=0.01)
 
     cb_cache = Cache(verbose=True, model_randomize_parameter=1e-5)
 
     cb_es = EarlyStopping(eps=1e-6,
-                                        loss_window=1000,
-                                        no_improvement_patience=500,
-                                        patience=10,
-                                        randomize_parameter=0,
-                                        info_string_every=500)
+                          loss_window=1000,
+                          no_improvement_patience=500,
+                          patience=10,
+                          randomize_parameter=0,
+                          info_string_every=500)
 
-    img_dir=os.path.join(os.path.dirname( __file__ ), 'wave_eq_img')
+    img_dir = os.path.join(os.path.dirname(__file__), 'wave_eq_img')
 
     cb_plots = Plots(save_every=500, print_every=None, img_dir=img_dir)
 
-    optimizer = Optimizer(model=net, optimizer_type='Adam', learning_rate= 1e-2)
+    optimizer = Optimizer(model=net, optimizer_type='Adam', learning_rate=1e-2)
 
-    model.train(optimizer=optimizer, epochs=1e5, save_model=False, mixed_precision=True, callbacks=[cb_es, cb_cache, cb_plots])
+    model.train(optimizer=optimizer, epochs=1e5, save_model=False, mixed_precision=True, device=device,
+                callbacks=[cb_es, cb_cache, cb_plots])
 
     end = time.time()
 
     start_1 = time.time()
 
-    model1 =  Model(net, domain, equation, boundaries)
+    model1 = Model(net, domain, equation, boundaries)
 
     model1.compile("NN", lambda_operator=1, lambda_bound=1000, h=0.01)
 
-    model1.train(optimizer, 1e5, save_model=False, mixed_precision=False, callbacks=[cb_es, cb_cache, cb_plots])
+    model1.train(optimizer=optimizer, epochs=1e5, save_model=False, mixed_precision=False, device=device,
+                 callbacks=[cb_es, cb_cache, cb_plots])
 
     end_1 = time.time()
 

@@ -14,7 +14,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname( __file__ ), '..'))
 
 from tedeous.data import Domain, Conditions, Equation
 from tedeous.model import Model
-from tedeous.callbacks import EarlyStopping, plot, adaptive_lambda
+from tedeous.callbacks import EarlyStopping, Plots, AdaptiveLambda
 from tedeous.optimizers.optimizer import Optimizer
 from tedeous.device import solver_device
 
@@ -108,8 +108,8 @@ img_dir=os.path.join(os.path.dirname( __file__ ), 'wave_eq_img')
 
 cb_plots = Plots(save_every=500, print_every=None, img_dir=img_dir)
 
-cb_lambda = adaptive_lambda.AdaptiveLambda()
+cb_lambda = AdaptiveLambda()
 
 optimizer = Optimizer(model=net, optimizer_type='Adam', learning_rate= 1e-3, gamma=0.9, decay_every=1000)
 
-model.train(optimizer=optimizer, epochs=1e5, save_model=False, callbacks=[cb_es, cb_plots, cb_lambda])
+model.train(optimizer=optimizer, epochs=1e5, save_model=False, device='cuda', callbacks=[cb_es, cb_plots, cb_lambda])

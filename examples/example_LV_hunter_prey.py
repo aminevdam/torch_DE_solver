@@ -9,14 +9,12 @@ from tedeous.data import Domain, Conditions, Equation
 from tedeous.model import Model
 from tedeous.callbacks import Cache, EarlyStopping, Plots
 from tedeous.optimizers.optimizer import Optimizer
-from tedeous.device import solver_device
 from tedeous.models import FourierNN
 
 
 x0 = 30.
 y0 = 4.
 
-solver_device('cuda')
 
 domain = Domain()
 domain.variable('t', [0, 20], 1001)
@@ -103,6 +101,6 @@ cb_plots = Plots(save_every=500, print_every=None, img_dir=img_dir)
 
 optimizer = Optimizer(model=net, optimizer_type='Adam', learning_rate= 1e-3)
 
-model.train(optimizer=optimizer, epochs=4e4, save_model=False, callbacks=[cb_cache, cb_es, cb_plots])
+model.train(optimizer=optimizer, epochs=4e4, save_model=False, device='cuda', callbacks=[cb_cache, cb_es, cb_plots])
 
 end = time.time()

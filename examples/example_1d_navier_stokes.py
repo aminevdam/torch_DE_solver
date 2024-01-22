@@ -8,11 +8,9 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from tedeous.data import Domain, Conditions, Equation
 from tedeous.model import Model
-from tedeous.callbacks import AdaptiveLambda, EarlyStopping, Plots
+from tedeous.callbacks import  EarlyStopping, Plots
 from tedeous.optimizers.optimizer import Optimizer
-from tedeous.device import solver_device
 
-solver_device('cuda')
 grid_res = 30
 
 domain = Domain()
@@ -137,4 +135,4 @@ cb_plots = Plots(save_every=5000, print_every=None, img_dir=img_dir)
 
 optimizer = Optimizer(model=net, optimizer_type='Adam', lr=1e-5)
 
-model.train(optimizer=optimizer, epochs=1e6, save_model=True, callbacks=[cb_es, cb_plots])
+model.train(optimizer=optimizer, epochs=1e6, save_model=True, device='cuda', callbacks=[cb_es, cb_plots])

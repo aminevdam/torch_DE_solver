@@ -11,9 +11,7 @@ from tedeous.data import Domain, Conditions, Equation
 from tedeous.model import Model
 from tedeous.callbacks import EarlyStopping, Plots
 from tedeous.optimizers.optimizer import Optimizer
-from tedeous.device import solver_device
 
-solver_device('cpu')
 
 m = 0.2
 L = 1
@@ -109,7 +107,7 @@ cb_plots = Plots(save_every=500, print_every=None, img_dir=img_dir)
 
 optimizer = Optimizer(model=net, optimizer_type='Adam', learning_rate= 1e-3)
 
-model.train(optimizer=optimizer, epochs=1e6, save_model=False, callbacks=[cb_es, cb_plots])
+model.train(optimizer=optimizer, epochs=1e6, save_model=False, device='cpu', callbacks=[cb_es, cb_plots])
                                     
                                      
                                     

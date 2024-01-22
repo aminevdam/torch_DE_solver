@@ -12,7 +12,7 @@ from tedeous.data import Domain, Conditions, Equation
 from tedeous.model import Model
 from tedeous.callbacks import EarlyStopping, Plots
 from tedeous.optimizers.optimizer import Optimizer
-from tedeous.device import solver_device, check_device
+from tedeous.device import check_device
 
 
 def exact_solution(grid):
@@ -30,9 +30,6 @@ def exact_solution(grid):
     exact = scipy.interpolate.griddata(grid_data, u, grid, method='nearest').reshape(-1)
 
     return torch.from_numpy(exact)
-
-
-solver_device('cuda')
 
 m = 0.2
 L = 1
@@ -147,7 +144,7 @@ def experiment(grid_res, mode):
 
     cb_plots = Plots(save_every=100, print_every=None, img_dir=img_dir)
 
-    model.train(optimizer=optimizer, epochs=3000, print_every=100, save_model=False, callbacks=[cb_plots])
+    model.train(optimizer=optimizer, epochs=3000, print_every=100, save_model=False, device='cuda', callbacks=[cb_plots])
 
     u_pred = check_device(net(grid)).reshape(-1)
 

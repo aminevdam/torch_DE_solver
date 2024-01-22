@@ -20,13 +20,9 @@ from tedeous.model import Model
 from tedeous.models import mat_model
 from tedeous.callbacks import Cache, EarlyStopping, Plots
 from tedeous.optimizers.optimizer import Optimizer
-from tedeous.device import solver_device
 
 import time
 
-
-
-solver_device('cpu')
 
 exp_dict_list=[]
 
@@ -263,7 +259,7 @@ for grid_res in [20,30]:
 
         optimizer = Optimizer(model=net, optimizer_type='LBFGS', learning_rate= 0.5)
 
-        model.train(optimizer=optimizer, epochs=5e6, save_model=True, callbacks=[cb_es, cb_plots, cb_cache])
+        model.train(optimizer=optimizer, epochs=5e6, save_model=True, device='cpu', callbacks=[cb_es, cb_plots, cb_cache])
 
         end = time.time()
 

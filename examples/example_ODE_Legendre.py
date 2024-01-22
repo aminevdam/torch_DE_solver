@@ -19,10 +19,6 @@ from tedeous.data import Domain, Conditions, Equation
 from tedeous.model import Model
 from tedeous.callbacks import Cache, EarlyStopping, Plots
 from tedeous.optimizers.optimizer import Optimizer
-from tedeous.device import solver_device
-
-
-solver_device('cpu')
 
 """
 Preparing grid
@@ -185,7 +181,7 @@ for n in range(3,11):
 
         optimizer = Optimizer(model=net, optimizer_type='Adam', learning_rate= 1e-3)
 
-        model.train(optimizer=optimizer, epochs=1e5, save_model=False, callbacks=[cb_cache, cb_es, cb_plots])
+        model.train(optimizer=optimizer, epochs=1e5, save_model=False, device='cpu', callbacks=[cb_cache, cb_es, cb_plots])
 
         end = time.time()
     

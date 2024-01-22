@@ -29,11 +29,10 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname( __file__ ), '..'))
 
 from tedeous.data import Domain, Conditions, Equation
 from tedeous.model import Model
-from tedeous.callbacks import EarlyStopping, plot, cache
+from tedeous.callbacks import EarlyStopping, Plots, Cache
 from tedeous.optimizers.optimizer import Optimizer
 from tedeous.device import solver_device
 
-solver_device('cuda')
 # constannts for PDE system
 p_l = 1
 v_l = 0
@@ -211,14 +210,14 @@ def SOD_experiment(grid_res, CACHE):
 
     cb_plots = Plots(save_every=1000, print_every=None, img_dir=img_dir)
 
-    optimizer = Optimizer(model=net, optimizer_type='Adam', learning_rate= 1e-2})
+    optimizer = Optimizer(model=net, optimizer_type='Adam', learning_rate= 1e-2)
 
     if CACHE:
         callbacks = [cb_cache, cb_es, cb_plots]
     else:
         callbacks = [cb_es, cb_plots]
 
-    model.train(optimizer, 1e5, save_model=CACHE, callbacks=callbacks)
+    model.train(optimizer=optimizer, epochs=1e5, device='cuda', save_model=CACHE, callbacks=callbacks)
 
     end = time.time()
 

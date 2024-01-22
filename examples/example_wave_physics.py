@@ -17,7 +17,6 @@ from tedeous.data import Domain, Conditions, Equation
 from tedeous.model import Model
 from tedeous.callbacks import EarlyStopping, Plots, Cache
 from tedeous.optimizers.optimizer import Optimizer
-from tedeous.device import solver_device
 
 """
 Preparing grid
@@ -25,9 +24,6 @@ Preparing grid
 Grid is an essentially torch.Tensor  of a n-D points where n is the problem
 dimensionality
 """
-
-solver_device('gpu')
-
 
 def func(grid):
     x, t = grid[:, 0], grid[:, 1]
@@ -169,7 +165,7 @@ def wave_experiment(grid_res):
 
     optimizer = Optimizer(model=net, optimizer_type='Adam', learning_rate=1e-4)
 
-    model.train(optimizer=optimizer, epochs=5e6, save_model=True, callbacks=[cb_es, cb_plots, cb_cache])
+    model.train(optimizer=optimizer, epochs=5e6, save_model=True, device='cuda', callbacks=[cb_es, cb_plots, cb_cache])
 
     end = time.time()
 

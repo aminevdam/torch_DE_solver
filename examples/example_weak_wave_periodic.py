@@ -9,11 +9,9 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from tedeous.data import Domain, Conditions, Equation
 from tedeous.model import Model
-from tedeous.callbacks import EarlyStopping, plot
+from tedeous.callbacks import EarlyStopping, Plots
 from tedeous.optimizers.optimizer import Optimizer
-from tedeous.device import solver_device
 
-solver_device('cpu')
 # Grid
 domain = Domain()
 
@@ -105,7 +103,7 @@ cb_plots = Plots(save_every=100, print_every=None, img_dir=img_dir)
 
 optimizer = Optimizer(model=net, optimizer_type='Adam', learning_rate=1e-2)
 
-model.train(optimizer=optimizer, epochs=1e5, save_model=False, callbacks=[cb_es, cb_plots])
+model.train(optimizer=optimizer, epochs=1e5, save_model=False, device='cpu', callbacks=[cb_es, cb_plots])
 
 end = time.time()
 print('Time taken 10= ', end - start)

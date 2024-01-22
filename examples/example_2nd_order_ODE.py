@@ -12,9 +12,6 @@ from tedeous.data import Domain, Conditions, Equation
 from tedeous.model import Model
 from tedeous.callbacks import AdaptiveLambda, Cache, EarlyStopping, Plots
 from tedeous.optimizers.optimizer import Optimizer
-from tedeous.device import solver_device
-
-solver_device('cuda')
 
 domain = Domain()
 
@@ -107,7 +104,8 @@ cb_lambda = AdaptiveLambda(sampling_N=2)
 
 optimizer = Optimizer(model=net, optimizer_type='Adam', learning_rate=1e-4)
 
-model.train(optimizer=optimizer, epochs=1e5, save_model=True, callbacks=[cb_cache, cb_es, cb_plots, cb_lambda])
+model.train(optimizer=optimizer, epochs=1e5, save_model=True, device='cuda',
+            callbacks=[cb_cache, cb_es, cb_plots, cb_lambda])
 
 
 def sln(t):

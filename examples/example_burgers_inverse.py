@@ -11,11 +11,8 @@ from tedeous.data import Domain, Conditions, Equation
 from tedeous.model import Model
 from tedeous.callbacks import EarlyStopping, Plots, InverseTask
 from tedeous.optimizers.optimizer import Optimizer
-from tedeous.device import solver_device
 from tedeous.models import parameter_registr
 
-
-solver_device('cuda')
 
 domain = Domain()
 
@@ -108,4 +105,4 @@ cb_params = InverseTask(parameters=parameters, info_string_every=5000)
 
 optimizer = Optimizer(model=net, optimizer_type='Adam', learning_rate= 1e-4)
 
-model.train(optimizer=optimizer, epochs=25e3, save_model=False, callbacks=[cb_es, cb_plots, cb_params])
+model.train(optimizer=optimizer, epochs=25e3, save_model=False, device='cuda', callbacks=[cb_es, cb_plots, cb_params])

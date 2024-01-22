@@ -11,25 +11,21 @@ import os
 import time
 
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'TRUE'
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname( __file__ ), '..')))
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from tedeous.data import Domain, Conditions, Equation
 from tedeous.model import Model
 from tedeous.callbacks import EarlyStopping, Plots, Cache
 from tedeous.optimizers.optimizer import Optimizer
-from tedeous.device import solver_device
 from tedeous.models import mat_model
 
-
-solver_device('cpu')
-
-exp_dict_list=[]
+exp_dict_list = []
 
 for grid_res in range(20, 110, 10):
     domain = Domain()
     domain.variable('x', [0, 1], grid_res)
     domain.variable('t', [0, 1], grid_res)
-    
+
     """
     Preparing boundary conditions (BC)
     
@@ -42,22 +38,22 @@ for grid_res in range(20, 110, 10):
     bval=torch.Tensor prescribed values at every point in the boundary
     
     """
-    
+
     boundaries = Conditions()
 
     # Initial conditions at t=0
     x = domain.variable_dict['x']
-    boundaries.dirichlet({'x': [0, 1], 't': 0}, value = torch.sin(np.pi*x))
-    
+    boundaries.dirichlet({'x': [0, 1], 't': 0}, value=torch.sin(np.pi * x))
+
     # Initial conditions at t=1
-    boundaries.dirichlet({'x': [0, 1], 't': 1}, value = torch.sin(np.pi*x))
-    
+    boundaries.dirichlet({'x': [0, 1], 't': 1}, value=torch.sin(np.pi * x))
+
     # Boundary conditions at x=0
     boundaries.dirichlet({'x': 0, 't': [0, 1]}, value=0)
-    
+
     # Boundary conditions at x=1
     boundaries.dirichlet({'x': 1, 't': [0, 1]}, value=0)
-    
+
     """
     Defining wave equation
     
@@ -96,21 +92,23 @@ for grid_res in range(20, 110, 10):
         '-d2u/dt2**1':
             {
                 'coeff': -1,
-                'd2u/dt2': [1,1],
-                'pow':1
+                'd2u/dt2': [1, 1],
+                'pow': 1
             }
     }
-    
+
     equation.add(wave_eq)
-  
+
     for _ in range(10):
-        sln = np.genfromtxt(os.path.abspath(os.path.join(os.path.dirname( __file__ ), 'wolfram_sln/wave_sln_'+str(grid_res)+'.csv')),delimiter=',')
-        
+        sln = np.genfromtxt(
+            os.path.abspath(os.path.join(os.path.dirname(__file__), 'wolfram_sln/wave_sln_' + str(grid_res) + '.csv')),
+            delimiter=',')
+
         start = time.time()
 
-        net= mat_model(domain, equation)
+        net = mat_model(domain, equation)
 
-        model =  Model(net, domain, equation, boundaries)
+        model = Model(net, domain, equation, boundaries)
 
         model.compile("mat", lambda_operator=1, lambda_bound=100)
 
@@ -118,30 +116,28 @@ for grid_res in range(20, 110, 10):
 
         cb_cache = Cache(verbose=True, model_randomize_parameter=1e-5)
 
-        img_dir = os.path.join(os.path.dirname( __file__ ), 'wave_eq_img')
+        img_dir = os.path.join(os.path.dirname(__file__), 'wave_eq_img')
 
         cb_plots = Plots(save_every=100, print_every=None, img_dir=img_dir)
 
-        optimizer = Optimizer(model=net, optimizer_type='LBFGS', learning_rate= 1e-1)
+        optimizer = Optimizer(model=net, optimizer_type='LBFGS', learning_rate=1e-1)
 
-        model.train(optimizer=optimizer, epochs=5e6, save_model=False, callbacks=[cb_es, cb_plots])
+        model.train(optimizer=optimizer, epochs=5e6, save_model=False, device='cpu', callbacks=[cb_es, cb_plots])
 
         end = time.time()
 
         error_rmse = np.sqrt(np.mean((sln.reshape(-1) - net.detach().numpy().reshape(-1)) ** 2))
 
-        exp_dict_list.append({'grid_res':grid_res,'time':end - start,'RMSE':error_rmse,'type':'wave_eqn'})
-        
+        exp_dict_list.append({'grid_res': grid_res, 'time': end - start, 'RMSE': error_rmse, 'type': 'wave_eqn'})
+
         print('Time taken {}= {}'.format(grid_res, end - start))
         print('RMSE {}= {}'.format(grid_res, error_rmse))
-        #result_assessment=pd.DataFrame(exp_dict_list)
-        #result_assessment.to_csv('results_wave_matrix_{}.csv'.format(grid_res))
+        # result_assessment=pd.DataFrame(exp_dict_list)
+        # result_assessment.to_csv('results_wave_matrix_{}.csv'.format(grid_res))
 
+# result_assessment=pd.DataFrame(exp_dict_list)
+# result_assessment.to_csv('results_wave_matrix_.csv')
 
+# result_assessment.boxplot(by='grid_res',column='time',showfliers=False,figsize=(20,10),fontsize=42)
 
-#result_assessment=pd.DataFrame(exp_dict_list)
-#result_assessment.to_csv('results_wave_matrix_.csv')
-
-#result_assessment.boxplot(by='grid_res',column='time',showfliers=False,figsize=(20,10),fontsize=42)
-
-#result_assessment.boxplot(by='grid_res',column='RMSE',figsize=(20,10),fontsize=42)
+# result_assessment.boxplot(by='grid_res',column='RMSE',figsize=(20,10),fontsize=42)

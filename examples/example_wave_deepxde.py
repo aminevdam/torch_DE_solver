@@ -112,4 +112,4 @@ plots = Plots(save_every=10, print_every=10, img_dir=img_dir)
 
 optimizer = Optimizer(model=net, optimizer_type='Adam', learning_rate=1e-3)
 
-model.train(optimizer=optimizer, epochs=10, save_model=True, callbacks=[es, plots, cache])
+model.train(optimizer=optimizer, epochs=10, save_model=True, device='cuda', callbacks=[es, plots, cache])

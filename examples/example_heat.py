@@ -17,11 +17,10 @@ from tedeous.data import Domain, Conditions, Equation
 from tedeous.model import Model
 from tedeous.callbacks import Cache, EarlyStopping, Plots
 from tedeous.optimizers.optimizer import Optimizer
-from tedeous.device import solver_device
 import time
 
 
-solver_device('cpu')
+
 
 
 def func(grid):
@@ -178,7 +177,7 @@ def heat_experiment(grid_res, CACHE):
     
     start = time.time()
 
-    model.train(optimizer=optimizer, epochs=1e6, save_model=CACHE, callbacks=callbacks)
+    model.train(optimizer=optimizer, epochs=1e6, save_model=CACHE, device='cpu', callbacks=callbacks)
 
     end = time.time()
 

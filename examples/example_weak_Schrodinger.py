@@ -10,10 +10,6 @@ from tedeous.data import Domain, Conditions, Equation
 from tedeous.model import Model
 from tedeous.callbacks import EarlyStopping, Plots
 from tedeous.optimizers.optimizer import Optimizer
-from tedeous.device import solver_device
-
-
-solver_device('cpu')
 
 domain = Domain()
 domain.variable('x', [-5, 5], 41)
@@ -179,4 +175,4 @@ cb_plots = Plots(save_every=10, print_every=None, img_dir=img_dir)
 
 optimizer = Optimizer(model=net, optimizer_type='LBFGS', learning_rate= 0.9)
 
-model.train(optimizer=optimizer, epochs=1e5, save_model=False, callbacks=[cb_es, cb_plots])
+model.train(optimizer=optimizer, epochs=1e5, save_model=False, device='cpu', callbacks=[cb_es, cb_plots])

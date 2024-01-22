@@ -12,9 +12,7 @@ from tedeous.data import Domain, Conditions, Equation
 from tedeous.model import Model
 from tedeous.callbacks import AdaptiveLambda, Cache, EarlyStopping, Plots
 from tedeous.optimizers.optimizer import Optimizer
-from tedeous.device import solver_device
 
-solver_device('cpu')
 
 a = 4
 
@@ -97,7 +95,7 @@ optimizer = Optimizer(model=net,
                       gamma=0.9,
                       decay_every=1000)
 
-model.train(optimizer=optimizer, epochs=1e5, save_model=True, callbacks=[cb_lambda, cb_cache, cb_es, cb_plots])
+model.train(optimizer=optimizer, epochs=1e5, save_model=True,device='cpu', callbacks=[cb_lambda, cb_cache, cb_es, cb_plots])
 
 plt.plot(grid.detach().numpy(), u(grid, a).detach().numpy(), label='Exact')
 plt.plot(grid.detach().numpy(), net(grid).detach().numpy(), '--', label='Predicted')

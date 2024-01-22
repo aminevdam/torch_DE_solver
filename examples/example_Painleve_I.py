@@ -18,9 +18,8 @@ from tedeous.data import Domain, Conditions, Equation
 from tedeous.model import Model
 from tedeous.callbacks import Cache, EarlyStopping, Plots
 from tedeous.optimizers.optimizer import Optimizer
-from tedeous.device import solver_device, check_device
+from tedeous.device import check_device
 
-solver_device('cpu')
 
 def p_I_exp(grid_res, nruns, CACHE):
     
@@ -171,7 +170,7 @@ def p_I_exp(grid_res, nruns, CACHE):
 
         optimizer = Optimizer(model=net, optimizer_type='Adam', learning_rate= 1e-4)
 
-        model.train(optimizer=optimizer, epochs=1e5, save_model=False, callbacks=[cb_cache, cb_es, cb_plots])
+        model.train(optimizer=optimizer, epochs=1e5, save_model=False, device='cpu', callbacks=[cb_cache, cb_es, cb_plots])
 
         end = time.time()
 

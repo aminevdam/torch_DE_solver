@@ -11,22 +11,18 @@ import os
 import sys
 
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'TRUE'
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname( __file__ ), '..')))
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from tedeous.data import Domain, Conditions, Equation
 from tedeous.model import Model
 from tedeous.callbacks import Cache, EarlyStopping, Plots
 from tedeous.optimizers.optimizer import Optimizer
-from tedeous.device import solver_device, check_device, device_type
+from tedeous.device import check_device, device_type
 
+exp_dict_list = []
 
-solver_device('gpu')
+for grid_res in [10, 20, 30]:
 
-exp_dict_list=[]
-
-
-for grid_res in [10,20,30]:
-    
     """
     Preparing grid
 
@@ -63,21 +59,21 @@ for grid_res in [10,20,30]:
     
     bval=torch.Tensor prescribed values at every point in the boundary
     """
-    
+
     # coefficients for BC
-    
+
     a1, a2, a3 = [1, 2, 1]
-    
+
     b1, b2, b3 = [2, 1, 3]
-    
+
     r1, r2 = [5, 5]
 
     boundaries = Conditions()
-    
+
     """
     Boundary x=0
     """
-    
+
     # operator a1*d2u/dx2+a2*du/dx+a3*u
     bop1 = {
         'a1*d2u/dx2':
@@ -116,7 +112,7 @@ for grid_res in [10,20,30]:
                 'coeff': b1,
                 'd2u/dx2': [0, 0],
                 'pow': 1,
-                'var': 0 
+                'var': 0
             },
         'b2*du/dx':
             {
@@ -130,7 +126,7 @@ for grid_res in [10,20,30]:
                 'coeff': b3,
                 'u': [None],
                 'pow': 1,
-                'var':0
+                'var': 0
             }
     }
 
@@ -146,7 +142,7 @@ for grid_res in [10,20,30]:
                 'coeff': r1,
                 'du/dx': [0],
                 'pow': 1,
-                'var':0
+                'var': 0
             },
         'r2*u':
             {
@@ -190,10 +186,12 @@ for grid_res in [10,20,30]:
 
     equation = Equation()
 
+
     # -sin(x)cos(t)
     def c1(grid):
         return (-1) * torch.sin(grid[:, 0]) * torch.cos(grid[:, 1])
-    
+
+
     # operator is du/dt+6u*(du/dx)+d3u/dx3-sin(x)*cos(t)=0
     kdv = {
         '1*du/dt**1':
@@ -207,22 +205,22 @@ for grid_res in [10,20,30]:
             {
                 'coeff': 6,
                 'u*du/dx': [[None], [0]],
-                'pow': [1,1],
-                'var':[0,0]
+                'pow': [1, 1],
+                'var': [0, 0]
             },
         'd3u/dx3**1':
             {
                 'coeff': 1,
                 'd3u/dx3': [0, 0, 0],
                 'pow': 1,
-                'var':0
+                'var': 0
             },
         '-sin(x)cos(t)':
             {
                 'coeff': c1,
                 'u': [None],
                 'pow': 0,
-                'var':0
+                'var': 0
             }
     }
 
@@ -233,11 +231,12 @@ for grid_res in [10,20,30]:
     """
 
     for _ in range(1):
-        sln=np.genfromtxt(os.path.abspath(os.path.join(os.path.dirname( __file__ ), 'wolfram_sln/KdV_sln_'+str(grid_res)+'.csv')),delimiter=',')
-        sln_torch=torch.from_numpy(sln)
-        sln_torch1=sln_torch.reshape(-1,1)
-        
-        
+        sln = np.genfromtxt(
+            os.path.abspath(os.path.join(os.path.dirname(__file__), 'wolfram_sln/KdV_sln_' + str(grid_res) + '.csv')),
+            delimiter=',')
+        sln_torch = torch.from_numpy(sln)
+        sln_torch1 = sln_torch.reshape(-1, 1)
+
         net = torch.nn.Sequential(
             torch.nn.Linear(2, 100),
             torch.nn.Tanh(),
@@ -247,53 +246,54 @@ for grid_res in [10,20,30]:
             torch.nn.Tanh(),
             torch.nn.Linear(100, 1)
         )
-    
+
         start = time.time()
-        
+
         model = Model(net, domain, equation, boundaries)
-        
+
         model.compile('NN', lambda_operator=1, lambda_bound=100, h=0.01)
 
-        img_dir = os.path.join(os.path.dirname( __file__ ), 'kdv_img')
+        img_dir = os.path.join(os.path.dirname(__file__), 'kdv_img')
 
         cb_cache = Cache(verbose=True, model_randomize_parameter=1e-6)
 
         cb_es = EarlyStopping(eps=1e-5,
-                                            loss_window=100,
-                                            no_improvement_patience=1000,
-                                            patience=5,
-                                            randomize_parameter=1e-6)
-        
+                              loss_window=100,
+                              no_improvement_patience=1000,
+                              patience=5,
+                              randomize_parameter=1e-6)
+
         cb_plots = Plots(save_every=1000, print_every=None, img_dir=img_dir)
 
-        optimizer = Optimizer(model=net, optimizer_type='Adam', learning_rate= 1e-4)
+        optimizer = Optimizer(model=net, optimizer_type='Adam', learning_rate=1e-4)
 
-        model.train(optimizer=optimizer, epochs=1e5, save_model=True, callbacks=[cb_es, cb_cache, cb_plots])
+        model.train(optimizer=optimizer, epochs=1e5, save_model=True, device='cuda',
+                    callbacks=[cb_es, cb_cache, cb_plots])
 
         end = time.time()
-    
+
         grid = domain.build('NN')
         net = net.to(device=device_type())
         grid = check_device(grid)
         sln_torch1 = check_device(sln_torch1)
 
-        error_rmse=torch.sqrt(torch.mean((sln_torch1-net(grid))**2))
-    
-        exp_dict_list.append({'grid_res':grid_res,'time':end - start,'RMSE':error_rmse.detach().cpu().numpy(),'type':'kdv_eqn','cache':True})
-        
+        error_rmse = torch.sqrt(torch.mean((sln_torch1 - net(grid)) ** 2))
+
+        exp_dict_list.append(
+            {'grid_res': grid_res, 'time': end - start, 'RMSE': error_rmse.detach().cpu().numpy(), 'type': 'kdv_eqn',
+             'cache': True})
+
         print('Time taken {}= {}'.format(grid_res, end - start))
         print('RMSE {}= {}'.format(grid_res, error_rmse))
 
+# CACHE=True
 
-#CACHE=True
+# import pandas as pd
 
-#import pandas as pd
+# result_assessment=pd.DataFrame(exp_dict_list)
 
-#result_assessment=pd.DataFrame(exp_dict_list)
+# result_assessment.boxplot(by='grid_res',column='time',showfliers=False,figsize=(20,10),fontsize=42)
 
-#result_assessment.boxplot(by='grid_res',column='time',showfliers=False,figsize=(20,10),fontsize=42)
+# result_assessment.boxplot(by='grid_res',column='RMSE',figsize=(20,10),fontsize=42)
 
-#result_assessment.boxplot(by='grid_res',column='RMSE',figsize=(20,10),fontsize=42)
-
-#result_assessment.to_csv('benchmarking_data/kdv_experiment_10_30_cache={}.csv'.format(str(CACHE)))
-
+# result_assessment.to_csv('benchmarking_data/kdv_experiment_10_30_cache={}.csv'.format(str(CACHE)))
