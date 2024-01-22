@@ -9,7 +9,9 @@ from tedeous.callbacks.callback import Callback
 
 
 class Plots(Callback):
-    """Class for ploting solutions."""
+    """
+    Class for plotting solutions.
+    """
     def __init__(self,
                  print_every: Union[int, None] = 500,
                  save_every: Union[int, None] = 500,
@@ -23,15 +25,14 @@ class Plots(Callback):
             img_dir (str, optional): directory title where plots are being saved. Defaults to None.
         """
         super().__init__()
-        self.print_every = print_every if print_every is not None else 0.1
-        self.save_every =  save_every if save_every is not None else 0.1
+        self.print_every = print_every
+        self.save_every = save_every
         self.title = title
         self.img_dir = img_dir
 
     def _print_nn(self):
         """
         Solution plot for *NN, autograd* mode.
-
         """
 
         try:
@@ -116,12 +117,16 @@ class Plots(Callback):
                                      str(datetime.datetime.now().timestamp()) + '.png')
         return directory
 
-    def solution_print(
-        self):
-        """ printing or saving figures.
+    def solution_print(self):
         """
-        print_flag = self.model.t % self.print_every == 0
-        save_flag = self.model.t % self.save_every == 0
+        printing or saving figures.
+        """
+        try:
+            print_flag = self.model.t % self.print_every == 0
+            save_flag = self.model.t % self.save_every == 0
+        except TypeError:
+            print_flag = None
+            save_flag = None
 
         if print_flag or save_flag:
             self.net = self.model.net
@@ -138,4 +143,5 @@ class Plots(Callback):
             plt.close()
     
     def on_epoch_end(self, logs=None):
+
         self.solution_print()

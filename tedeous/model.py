@@ -1,20 +1,20 @@
 import torch
 from typing import Union, List
+import datetime
+import time
 
-from tedeous.callbacks import Callback
 from tedeous.data import Domain, Conditions, Equation
 from tedeous.input_preprocessing import InitialDataProcessor, lambda_prepare
 from tedeous.eval import Operator, Bounds
 from tedeous.points_type import Points_type
-from tedeous.utils import create_random_fn
-
-from tedeous.callbacks import CallbackList
+from tedeous.utils import create_random_fn, CacheUtils
+from tedeous.callbacks import Callback, CallbackList
 from tedeous.device import check_device, solver_device, device_type
 from tedeous.solution import Solution
 from tedeous.optimizers import OptimizerStep, Optimizer
 
 
-class Model():
+class Model:
     """The model is an interface for solving equations"""
 
     def __init__(
@@ -35,16 +35,15 @@ class Model():
         self.domain = domain
         self.equation = equation
         self.conditions = conditions
+        self._check = None
 
     def _compile_nn(self, **params):
-        self.h = params.get('h', None)
         self.inner_order = params.get('inner_order', '1')
         self.boundary_order = params.get('boundary_order', '2')
         sorted_grid = Points_type(self.grid).grid_sort()
         self.n_t = len(sorted_grid['central'][:, 0].unique())
 
     def _compile_mat(self, **params):
-        self.derivative_points = params.get('derivative_points', None)
         self.n_t = self.grid.shape[1]
 
     def _compile_autograd(self, **params):
@@ -96,11 +95,16 @@ class Model():
         """
         model_randomize_parameter = params.get('model_randomize_parameter', 0.01)
 
+        self.h = params.get('h', None)
         self._r = create_random_fn(model_randomize_parameter)
         self.save_graph = params.get('save_graph', False)
         self.lambda_operator = params.get('lambda_operator', 1)
         self.lambda_bound = params.get('lambda_bound', 100)
         self.normalized_loss_stop = params.get('normalized_loss_stop', False)
+        self.inner_order = params.get('inner_order', '1')
+        self.boundary_order = params.get('boundary_order', '2')
+        self.derivative_points = params.get('derivative_points', None)
+        self.dtype = torch.float32
 
     def _set_solver_device(self, device: str):
         """
@@ -108,9 +112,11 @@ class Model():
         Args:
             device: device.
         """
+
         solver_device(device)
         self.grid = check_device(self.grid)
         self.net = self.net.to(device_type())
+        self.device = device
 
     def compile(
             self,
@@ -125,6 +131,12 @@ class Model():
         print('Compiling model...')
         self._loss_parameters(**params)
         self._misc_parameters(**params)
+        self.mode = mode
+
+        self.grid = self.domain.build(mode=mode)
+        variable_dict = self.domain.variable_dict
+        operator = self.equation.equation_lst
+        bconds = self.conditions.build(variable_dict)
 
         if mode == 'NN':
             self._compile_nn(**params)
@@ -132,11 +144,6 @@ class Model():
             self._compile_autograd(**params)
         elif mode == 'mat':
             self._compile_mat(**params)
-
-        self.grid = self.domain.build(mode=mode)
-        variable_dict = self.domain.variable_dict
-        operator = self.equation.equation_lst
-        bconds = self.conditions.build(variable_dict)
 
         equation_cls = InitialDataProcessor(
             self.grid,
@@ -148,16 +155,35 @@ class Model():
 
         self.solution_cls = Solution(self.grid, equation_cls, self.net, mode, self.weak_form,
                                      self.lambda_operator, self.lambda_bound, self.tol, self.derivative_points)
+        print('Model compiled.')
 
+    def _model_save(
+            self,
+            save_model: bool,
+            model_name: str):
+        """
+        Model saving.
 
+        Args:
+            save_model: flag for model saving.
+            model_name: name of the model.
+        """
+        if save_model:
+            if self.mode == 'mat':
+                CacheUtils().save_model_mat(model=self.net,
+                                            domain=self.domain,
+                                            name=model_name)
+            else:
+                CacheUtils().save_model(model=self.net, name=model_name)
 
     def train(self,
               optimizer: Optimizer,
               callbacks: List[Callback],
-              epochs: int = 10000,
+              epochs: Union[int, float] = 10000,
               verbose: int = 0,
-              print_every: Union[None, int] = None,
               device: str = 'cpu',
+              save_model: bool = False,
+              model_name: Union[str, None] = None,
               mixed_precision: bool = False) -> Union[torch.nn.Module, torch.nn.Sequential]:
         """
         Trains the model.
@@ -167,8 +193,9 @@ class Model():
             callbacks: list of callbacks used for training.
             epochs: number of epochs to train.
             verbose: verbosity level.
-            print_every: print every number epochs.
             device: device to use.
+            save_model: whether to save model.
+            model_name: model name.
             mixed_precision: mixed precision (fp16/fp32).
 
         Returns:
@@ -180,7 +207,7 @@ class Model():
         opt_step = OptimizerStep(mixed_precision, self)
         closure = opt_step.step()
 
-        callbacks = CallbackList(callbacks=callbacks, verbose=verbose, print_every=print_every, model=self)
+        callbacks = CallbackList(callbacks=callbacks, verbose=verbose, model=self)
         callbacks.on_train_begin()
 
         self.t = 0
@@ -188,7 +215,12 @@ class Model():
 
         loss, loss_norm = self.solution_cls.evaluate()
         self.min_loss = loss_norm if self.normalized_loss_stop else loss
-        
+
+        print('[{}] initial (min) loss is {}'.format(
+            datetime.datetime.now(), self.min_loss.item()))
+
+        start = time.time()
+
         while self.t < epochs:
             callbacks.on_epoch_begin()
 
@@ -199,6 +231,13 @@ class Model():
             if self.stop_training:
                 break
 
+            self.t += 1
+
         callbacks.on_train_end()
+
+        self._model_save(save_model, model_name)
+
+        end = time.time()
+        print(f'[{end - start}] training time')
 
         return self.net

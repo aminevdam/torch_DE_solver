@@ -1,1 +1,1 @@
-from tedeous import *
+from tedeous.model import Model

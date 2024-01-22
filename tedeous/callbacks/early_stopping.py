@@ -20,19 +20,18 @@ class EarlyStopping(Callback):
                  info_string_every: Union[int, None] = None,
                  verbose: bool = True
                  ):
-        """_summary_
-
+        """
         Args:
             eps (float, optional): arbitrarily small number that uses for loss comparison criterion. Defaults to 1e-5.
             loss_window (int, optional): width of losses window which is used for average loss estimation. Defaults to 100.
             no_improvement_patience (int, optional):  number of iterations during which
-                    the loss may not improve.. Defaults to 1000.
+                    the loss may not improve. Defaults to 1000.
             patience (int, optional): maximum number of times the stopping criterion
-                                      can be satisfied.. Defaults to 5.
-            abs_loss (Union[float, None], optional): absolute loss value using in _absloss_check().. Defaults to None.
+                                      can be satisfied. Defaults to 5.
+            abs_loss (Union[float, None], optional): absolute loss value using in _absloss_check(). Defaults to None.
             normalized_loss (bool, optional): calculate loss with all lambdas=1. Defaults to False.
             randomize_parameter (float, optional): some error for resulting
-                                        model weights to to avoid local optima. Defaults to 1e-5.
+                                        model weights to avoid local optima. Defaults to 1e-5.
             info_string_every (Union[int, None], optional): prints the loss state after every *int*
                                                     step. Defaults to None.
             verbose (bool, optional): print or not info about loss and current state of stopping criteria. Defaults to True.
@@ -47,7 +46,7 @@ class EarlyStopping(Callback):
         self._stop_dings = 0
         self._t_imp_start = 0
         self._r = create_random_fn(randomize_parameter)
-        self.info_string_every = info_string_every if info_string_every is not None else np.inf
+        self.print_every = info_string_every if info_string_every is not None else np.inf
         self.verbose = verbose
 
     def _line_create(self):
@@ -57,7 +56,7 @@ class EarlyStopping(Callback):
         self._line = np.polyfit(range(self.loss_window), self.last_loss, 1)
 
     def _window_check(self):
-        """ Stopping criteria. We devide angle coeff of the approximating
+        """ Stopping criteria. We divide angle coeff of the approximating
         line (line_create()) on current loss value and compare one with *eps*
         """
         if self.t % self.loss_window == 0 and self._check is None:
@@ -102,19 +101,30 @@ class EarlyStopping(Callback):
             print('[{}] Absolute value of loss is lower than threshold'.format(
                                                         datetime.datetime.now()))
 
-        if self._check is not None or self.t % self.info_string_every == 0:
+        if self._check is not None or self.t % self.print_every == 0:
             try:
                 self._line
             except:
                 self._line_create()
-            loss = self.model.cur_loss.item() if isinstance(self.model.cur_loss, torch.Tensor) else self.mdoel.cur_loss
+            loss = self.model.cur_loss.item() if isinstance(self.model.cur_loss, torch.Tensor) else self.model.cur_loss
             info = 'Step = {} loss = {:.6f} normalized loss line= {:.6f}x+{:.6f}. There was {} stop dings already.'.format(
                     self.t, loss, self._line[0] / loss, self._line[1] / loss, self._stop_dings)
             print(info)
 
         self._check = None
 
+    def on_epoch_begin(self, logs=None):
+        self.t = self.model.t
+        self.mode = self.model.mode
+        self._check = self.model._check
+        self.min_loss = self.model.min_loss
+
     def on_epoch_end(self, logs=None):
+        try:
+            self.last_loss[(self.t - 1) % self.loss_window] = self.model.cur_loss
+        except:
+            self.last_loss = np.zeros(self.loss_window) + float(self.min_loss)
+
         self._window_check()
         self._patience_check()
         self._absloss_check()
@@ -122,18 +132,9 @@ class EarlyStopping(Callback):
         if self.model.cur_loss < self.min_loss:
             self.min_loss = self.model.cur_loss.item()
             self._t_imp_start = self.t
-        try:
-            self.last_loss[(self.t - 1) % self.loss_window] = self.model.cur_loss
-        except:
-            self.last_loss = np.zeros(self.loss_window) + float(self.min_loss)
 
         if self.verbose:
             self.verbose_print()
         if self._stop_dings >= self.patience:
             self.model.stop_training = True
 
-    def on_epoch_begin(self, logs=None):
-        self.t = self.model.t
-        self.mode = self.model.mode
-        self._check = self.model._check
-        self.min_loss = self.model.min_loss

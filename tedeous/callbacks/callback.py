@@ -18,7 +18,7 @@ class Callback(ABC):
 
     Attributes:
         params: Dict. Training parameters
-            (eg. verbosity, batch size, number of epochs...).
+            (e.g. verbosity, batch size, number of epochs...).
         model: Instance of `Model`.
             Reference of the model being trained.
     """

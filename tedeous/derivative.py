@@ -5,7 +5,7 @@ from typing import Any, Union, List, Tuple
 import numpy as np
 from scipy import linalg
 import torch
-
+from tedeous.device import check_device
 
 class DerivativeInt():
     """Interface class
@@ -87,6 +87,7 @@ class Derivative_autograd(DerivativeInt):
         """
 
         points.requires_grad = True
+        # print(points)
         fi = model(points)[:, var].sum(0)
         for ax in axis:
             grads, = torch.autograd.grad(fi, points, create_graph=True)

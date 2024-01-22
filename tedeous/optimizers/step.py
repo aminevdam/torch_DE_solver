@@ -48,15 +48,28 @@ class OptimizerStep:
         self.cuda_flag = True if self.model.device == 'cuda' and mixed_precision else False
         self.dtype = torch.float16 if self.model.device == 'cuda' else torch.bfloat16
 
+    def _closure_cpu(self):
+        """
+        Default pytorch closure function. Support CPU mixed_precision.
+        """
+        self.optimizer.zero_grad()
+        with torch.autocast(device_type=self.model.device, dtype=self.model.dtype, enabled=self.mixed_precision):
+            loss, loss_normalized = self.model.solution_cls.evaluate()
+
+        loss.backward()
+        self.cur_loss = loss_normalized if self.model.normalized_loss_stop else loss
+        return loss
+
     def _closure_default(self):
         """
         Default pytorch closure function. Support CPU mixed_precision.
         """
         self.optimizer.zero_grad()
-        with torch.autocast(device_type=self.model.device, dtype=self.dtype, enabled=self.mixed_precision):
-            loss, loss_normalized = self.model.solution_cls.evaluate()
+
+        loss, loss_normalized = self.model.solution_cls.evaluate()
 
         loss.backward()
+
         self.cur_loss = loss_normalized if self.model.normalized_loss_stop else loss
         return loss
 
@@ -182,7 +195,5 @@ class OptimizerStep:
             closure function.
         """
         if self.mixed_precision:
-            return self._closure_cuda
-        elif self.optimizer.optimizer == 'ZO':
-            return self._closure_zo
+            return self._closure_cuda if self.model.device == 'cuda' else self._closure_cpu
         return self._closure_default

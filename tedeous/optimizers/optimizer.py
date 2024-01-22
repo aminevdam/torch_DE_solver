@@ -1,6 +1,8 @@
 import torch
 from typing import Union
-from tedeous.optimizers import PSO, ZO_AdaMM, ZO_SignSGD
+from tedeous.optimizers.pso import PSO
+from tedeous.optimizers.zo_sgd import ZO_SignSGD
+from tedeous.optimizers.zo_adam import ZO_AdaMM
 
 
 class Optimizer:

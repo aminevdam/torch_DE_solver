@@ -245,9 +245,9 @@ class CacheUtils:
         except RuntimeError:
             torch.save(parameters_dict, self.cache_dir + '\\' + name + '.tar',
                        _use_new_zipfile_serialization=False)  # cyrrilic in path
-            print('model is saved in cache')
+            print('Model is saved in cache.')
         except:
-            print('Cannot save model in cache')
+            print('Cannot save model in cache.')
 
     def save_model_mat(self,
                        model: torch.Tensor,

@@ -11,10 +11,11 @@ import torch
 import numpy as np
 from copy import deepcopy
 
+import tedeous.model
 from tedeous.device import device_type
+from tedeous.solution import Solution
 from tedeous.callbacks.callback import Callback
 from tedeous.utils import create_random_fn
-from tedeous.model import Model
 from tedeous.utils import CacheUtils
 
 def count_output(model: torch.Tensor) -> int:
@@ -38,7 +39,7 @@ class CachePreprocessing:
     """class for preprocessing cache files.
     """
     def __init__(self,
-                 model: Model
+                 model
                  ):
         """
         Args:
@@ -98,26 +99,26 @@ class CachePreprocessing:
     def cache_lookup(self,
                      nmodels: Union[int, None] = None,
                      save_graph: bool = False,
-                     cache_verbose: bool = False) -> Union[None, dict, torch.nn.Module]:
+                     verbose: int = 0) -> Union[None, dict, torch.nn.Module]:
         """Looking for the best model (min loss) model from the cache files.
 
         Args:
             nmodels (Union[int, None], optional): maximal number of models that are taken from cache dir. Defaults to None.
             save_graph (bool, optional): responsible for saving the computational graph. Defaults to False.
-            cache_verbose (bool, optional): verbose cache operations. Defaults to False.
+            verbose (bool, optional): verbose cache operations. Defaults to False.
 
         Returns:
             Union[None, dict, torch.Tensor]: best model with optimizator state.
         """
 
         files = glob.glob(CacheUtils().cache_dir + '\*.tar')
-
+   
         if len(files) == 0:
             best_checkpoint = None
             return best_checkpoint
 
         cache_n = self._cache_files(files, nmodels)
-        
+
         min_loss = np.inf
         best_checkpoint = {}
 
@@ -152,7 +153,7 @@ class CachePreprocessing:
                 min_loss = loss
                 best_checkpoint['model'] = model
                 best_checkpoint['model_state_dict'] = model.state_dict()
-                if cache_verbose:
+                if verbose >= 1:
                     print('best_model_num={} , loss={}'.format(i, min_loss.item()))
 
             self.solution_cls.model = initial_model
@@ -164,14 +165,14 @@ class CachePreprocessing:
 
     def scheme_interp(self,
                       trained_model: torch.nn.Module,
-                      cache_verbose: bool = False) -> torch.nn.Module:
+                      verbose: bool = False):
         """ If the cache model has another arcitechure to user's model,
             we will not be able to use it. So we train user's model on the
             outputs of cache model.
 
         Args:
             trained_model (torch.nn.Module): the best model (min loss) from cache.
-            cache_verbose (bool, optional): verbose on/off of cache operations. Defaults to False.
+            verbose (bool, optional): verbose on/off of cache operations. Defaults to False.
 
         """
 
@@ -196,7 +197,7 @@ class CachePreprocessing:
             loss = torch.mean(torch.square(
                 trained_model(grid) - model(grid)))
             t += 1
-            if cache_verbose:
+            if verbose:
                 print('Interpolate from trained model t={}, loss={}'.format(
                     t, loss))
         
@@ -204,14 +205,14 @@ class CachePreprocessing:
 
     def cache_retrain(self,
                       cache_checkpoint: dict,
-                      cache_verbose: bool = False) -> torch.nn.Module:
+                      verbose: int = 0) -> Union[None, torch.nn.Module]:
         """ The comparison of the user's model and cache model architecture.
             If they are same, we will use model from cache. In the other case
             we use interpolation (scheme_interp method)
 
         Args:
             cache_checkpoint (dict): checkpoint of the cache model
-            cache_verbose (bool, optional): on/off printing cache operations. Defaults to False.
+            verbose (bool, optional): on/off printing cache operations. Defaults to False.
 
         """
 
@@ -229,7 +230,7 @@ class CachePreprocessing:
             model.load_state_dict(cache_checkpoint['model_state_dict'])
             model.train()
             self.solution_cls.model = model
-            if cache_verbose:
+            if verbose >= 1:
                 print('Using model from cache')
         # else retrain the input model using the cache model
         else:
@@ -237,7 +238,7 @@ class CachePreprocessing:
             cache_model.load_state_dict(cache_checkpoint['model_state_dict'])
             cache_model.eval()
             self.scheme_interp(
-                cache_model, cache_verbose=cache_verbose)
+                cache_model, verbose=verbose)
 
 
 class Cache(Callback):
@@ -251,25 +252,25 @@ class Cache(Callback):
     def __init__(self,
                  nmodels: Union[int, None] = None,
                  cache_dir: str = '../cache/',
-                 cache_verbose: bool = False,
+                 verbose: int = 0,
                  cache_model: Union[torch.nn.Sequential, None] = None,
                  model_randomize_parameter: Union[int, float] = 0,
-                 clear_cache: bool = False
-                ):
+                 clear_cache: bool = False):
         """
         Args:
             nmodels (Union[int, None], optional): maximal number of models that are taken from cache dir. Defaults to None. Defaults to None.
             cache_dir (str, optional): directory with cached models. Defaults to '../cache/'.
-            cache_verbose (bool, optional): printing cache operations. Defaults to False.
+            verbose (bool, optional): printing cache operations. Defaults to False.
             cache_model (Union[torch.nn.Sequential, None], optional): model for mat method, which will be saved in cache. Defaults to None.
             model_randomize_parameter (Union[int, float], optional): creates a random model parameters (weights, biases)
                 multiplied with a given randomize parameter.. Defaults to 0.
             clear_cache (bool, optional): clear cache directory. Defaults to False.
         """
 
+        super().__init__()
         self.nmodels = nmodels
         self.cache_dir = cache_dir
-        self.cache_verbose = cache_verbose
+        self.verbose = verbose
         self.cache_model = cache_model
         self.model_randomize_parameter = model_randomize_parameter
         self.clear_cache = clear_cache
@@ -283,13 +284,13 @@ class Cache(Callback):
         r = create_random_fn(self.model_randomize_parameter)
 
         cache_checkpoint = cache_preproc.cache_lookup(nmodels=self.nmodels,
-                                                    cache_verbose=self.cache_verbose)
+                                                    verbose=self.verbose)
 
         cache_preproc.cache_retrain(cache_checkpoint,
-                                               cache_verbose=self.cache_verbose)
+                                               verbose=self.verbose)
         self.model.solution_cls.model.apply(r)
 
-    def _cache_mat(self) -> torch.Tensor:
+    def _cache_mat(self):
         """  take model from cache as initial guess for *mat* mode.
         """
 
@@ -302,10 +303,10 @@ class Cache(Callback):
         weak_form = self.model.weak_form
 
         net_autograd = CacheUtils.model_mat(net, domain)
+        autograd_model = tedeous.model.Model(net_autograd, domain, equation, conditions)
 
-        autograd_model = Model(net_autograd, domain, equation, conditions)
-
-        autograd_model.compile('autograd', lambda_operator, lambda_bound, weak_form=weak_form)
+        autograd_model.compile(mode='autograd', lambda_operator=lambda_operator,
+                               lambda_bound=lambda_bound, weak_form=weak_form)
 
         r = create_random_fn(self.model_randomize_parameter)
 
@@ -313,12 +314,12 @@ class Cache(Callback):
 
         cache_checkpoint = cache_preproc.cache_lookup(
             nmodels=self.nmodels,
-            cache_verbose=self.cache_verbose)
+            verbose=self.verbose)
 
         if cache_checkpoint is not None:
             cache_preproc.cache_retrain(
                 cache_checkpoint,
-                cache_verbose=self.cache_verbose)
+                verbose=self.verbose)
 
             autograd_model.solution_cls.model.apply(r)
 
