@@ -1,6 +1,6 @@
 from tedeous.callbacks.callback import Callback
 
-import tree
+# import tree
 
 class CallbackList(Callback):
     """Container abstracting a list of callbacks."""
@@ -8,8 +8,6 @@ class CallbackList(Callback):
         self,
         callbacks=None,
         model=None,
-        verbose = 0,
-        print_every = 0,
         **params,
     ):
         """Container for `Callback` instances.
@@ -28,7 +26,7 @@ class CallbackList(Callback):
             **params: If provided, parameters will be passed to each `Callback`
                 via `Callback.set_params`.
         """
-        self.callbacks = tree.flatten(callbacks) if callbacks else []
+        self.callbacks = callbacks if callbacks else []
 
         if model:
             self.set_model(model)
@@ -51,7 +49,7 @@ class CallbackList(Callback):
     def on_epoch_begin(self, logs=None):
         logs = logs or {}
         for callback in self.callbacks:
-            callback.on_epoch_begin( logs)
+            callback.on_epoch_begin(logs)
 
     def on_epoch_end(self, logs=None):
         logs = logs or {}
