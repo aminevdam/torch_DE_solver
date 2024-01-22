@@ -6,11 +6,11 @@ import os
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'TRUE'
 sys.path.append('../')
 sys.path.pop()
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname( __file__ ), '..')))
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from tedeous.data import Domain, Conditions, Equation
 from tedeous.model import Model
-from tedeous.callbacks import cache, early_stopping, plot
+from tedeous.callbacks import Cache, EarlyStopping, Plots
 from tedeous.optimizers.optimizer import Optimizer
 from tedeous.device import solver_device
 from tedeous.models import Fourier_embedding
@@ -30,22 +30,21 @@ boundaries = Conditions()
 # Initial conditions at t=0
 x = domain.variable_dict['x']
 
-value = x**2*torch.cos(np.pi*x)
+value = x ** 2 * torch.cos(np.pi * x)
 
 boundaries.dirichlet({'x': [-1, 1], 't': 0}, value=value)
 
-    
 # Initial conditions at t=1
 boundaries.periodic([{'x': -1, 't': [0, 1]}, {'x': 1, 't': [0, 1]}])
 
-bop3= {
-        'du/dx':
-            {
-                'coeff': 1,
-                'du/dx': [1],
-                'pow': 1,
-                'var': 0
-            }
+bop3 = {
+    'du/dx':
+        {
+            'coeff': 1,
+            'du/dx': [1],
+            'pow': 1,
+            'var': 0
+        }
 }
 
 boundaries.periodic([{'x': -1, 't': [0, 1]}, {'x': 1, 't': [0, 1]}], operator=bop3)
@@ -63,7 +62,7 @@ AC = {
     '-0.0001*d2u/dx2**1':
         {
             'coeff': -0.0001,
-            'd2u/dx2': [1,1],
+            'd2u/dx2': [1, 1],
             'pow': 1,
             'var': 0
         },
@@ -93,31 +92,31 @@ net = torch.nn.Sequential(
     FFL,
     torch.nn.Linear(out, 128),
     torch.nn.Tanh(),
-    torch.nn.Linear(128,128),
+    torch.nn.Linear(128, 128),
     torch.nn.Tanh(),
-    torch.nn.Linear(128,128),
+    torch.nn.Linear(128, 128),
     torch.nn.Tanh(),
-    torch.nn.Linear(128,1)
+    torch.nn.Linear(128, 1)
 )
-    
+
 model = Model(net, domain, equation, boundaries)
 
 model.compile('autograd', lambda_operator=1, lambda_bound=100, tol=10)
 
-img_dir = os.path.join(os.path.dirname( __file__ ), 'AC_eq_img')
+img_dir = os.path.join(os.path.dirname(__file__), 'AC_eq_img')
 
-cb_cache = cache.Cache(cache_verbose=False, model_randomize_parameter=1e-5)
+cb_cache = Cache(verbose=False, model_randomize_parameter=1e-5)
 
-cb_es = early_stopping.EarlyStopping(eps=1e-7,
-                                     loss_window=100,
-                                     no_improvement_patience=1000,
-                                     patience=5,
-                                     abs_loss=1e-5,
-                                     info_string_every=1000,
-                                     randomize_parameter=1e-5)
+cb_es = EarlyStopping(eps=1e-7,
+                      loss_window=100,
+                      no_improvement_patience=1000,
+                      patience=5,
+                      abs_loss=1e-5,
+                      info_string_every=1000,
+                      randomize_parameter=1e-5)
 
-cb_plots = plot.Plots(save_every=1000, print_every=None, img_dir=img_dir)
+cb_plots = Plots(save_every=1000, print_every=None, img_dir=img_dir)
 
-optimizer = Optimizer('Adam', {'lr': 1e-3}, gamma=0.9, decay_every=1000)
+optimizer = Optimizer(model=net, optimizer_type='Adam', learning_rate=1e-3, gamma=0.9, decay_every=1000)
 
-model.train(optimizer, 1e5, save_model=True, callbacks=[cb_cache, cb_es, cb_plots])
+model.train(optimizer=optimizer, epochs=1e5, save_model=True, callbacks=[cb_cache, cb_es, cb_plots])

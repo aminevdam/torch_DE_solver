@@ -9,7 +9,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname( __file__ ), '..'))
 
 from tedeous.data import Domain, Conditions, Equation
 from tedeous.model import Model
-from tedeous.callbacks import early_stopping, plot, inverse_task
+from tedeous.callbacks import EarlyStopping, Plots, InverseTask
 from tedeous.optimizers.optimizer import Optimizer
 from tedeous.device import solver_device
 from tedeous.models import parameter_registr
@@ -94,7 +94,7 @@ model.compile('autograd', lambda_operator=1, lambda_bound=100)
 
 img_dir = os.path.join(os.path.dirname( __file__ ), 'burgers_eq_img')
 
-cb_es = early_stopping.EarlyStopping(eps=1e-7,
+cb_es = EarlyStopping(eps=1e-7,
                                      loss_window=100,
                                      no_improvement_patience=1000,
                                      patience=3,
@@ -102,10 +102,10 @@ cb_es = early_stopping.EarlyStopping(eps=1e-7,
                                      randomize_parameter=1e-5,
                                      info_string_every=5000)
 
-cb_plots = plot.Plots(save_every=5000, print_every=None, img_dir=img_dir)
+cb_plots = Plots(save_every=5000, print_every=None, img_dir=img_dir)
 
-cb_params = inverse_task.InverseTask(parameters=parameters, info_string_every=5000)
+cb_params = InverseTask(parameters=parameters, info_string_every=5000)
 
-optimizer = Optimizer('Adam', {'lr': 1e-4})
+optimizer = Optimizer(model=net, optimizer_type='Adam', learning_rate= 1e-4)
 
-model.train(optimizer, 25e3, save_model=False, callbacks=[cb_es, cb_plots, cb_params])
+model.train(optimizer=optimizer, epochs=25e3, save_model=False, callbacks=[cb_es, cb_plots, cb_params])

@@ -14,7 +14,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname( __file__ ), '..'))
 
 from tedeous.data import Domain, Conditions, Equation
 from tedeous.model import Model
-from tedeous.callbacks import early_stopping, plot, adaptive_lambda
+from tedeous.callbacks import EarlyStopping, plot, adaptive_lambda
 from tedeous.optimizers.optimizer import Optimizer
 from tedeous.device import solver_device
 
@@ -96,7 +96,7 @@ model =  Model(net, domain, equation, boundaries)
 
 model.compile("autograd", lambda_operator=1, lambda_bound=100)
 
-cb_es = early_stopping.EarlyStopping(eps=1e-7,
+cb_es = EarlyStopping(eps=1e-7,
                                     loss_window=1000,
                                     no_improvement_patience=1000,
                                     patience=10,
@@ -106,10 +106,10 @@ cb_es = early_stopping.EarlyStopping(eps=1e-7,
 
 img_dir=os.path.join(os.path.dirname( __file__ ), 'wave_eq_img')
 
-cb_plots = plot.Plots(save_every=500, print_every=None, img_dir=img_dir)
+cb_plots = Plots(save_every=500, print_every=None, img_dir=img_dir)
 
 cb_lambda = adaptive_lambda.AdaptiveLambda()
 
-optimizer = Optimizer('Adam', {'lr': 1e-3}, gamma=0.9, decay_every=1000)
+optimizer = Optimizer(model=net, optimizer_type='Adam', learning_rate= 1e-3, gamma=0.9, decay_every=1000)
 
-model.train(optimizer, 1e5, save_model=False, callbacks=[cb_es, cb_plots, cb_lambda])
+model.train(optimizer=optimizer, epochs=1e5, save_model=False, callbacks=[cb_es, cb_plots, cb_lambda])

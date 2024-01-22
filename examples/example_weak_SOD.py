@@ -9,7 +9,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname( __file__ ), '..'))
 
 from tedeous.data import Domain, Conditions, Equation
 from tedeous.model import Model
-from tedeous.callbacks import early_stopping, plot, cache
+from tedeous.callbacks import EarlyStopping, Plots, cache
 from tedeous.optimizers.optimizer import Optimizer
 from tedeous.device import solver_device
 
@@ -179,9 +179,9 @@ model.compile("NN", lambda_operator=1, lambda_bound=100, h=h, weak_form=weak_for
 
 img_dir=os.path.join(os.path.dirname( __file__ ), 'SOD_NN_weak_img')
 
-cb_cache = cache.Cache(cache_verbose=False, model_randomize_parameter=1e-5)
+cb_cache = Cache(verbose=False, model_randomize_parameter=1e-5)
 
-cb_es = early_stopping.EarlyStopping(eps=1e-6,
+cb_es = EarlyStopping(eps=1e-6,
                                     loss_window=100,
                                     no_improvement_patience=500,
                                     patience=2,
@@ -190,8 +190,8 @@ cb_es = early_stopping.EarlyStopping(eps=1e-6,
                                     info_string_every=100
                                     )
 
-cb_plots = plot.Plots(save_every=100, print_every=None, img_dir=img_dir)
+cb_plots = Plots(save_every=100, print_every=None, img_dir=img_dir)
 
-optimizer = Optimizer('Adam', {'lr': 1e-3})
+optimizer = Optimizer(model=net, optimizer_type='Adam', learning_rate= 1e-3)
 
-model.train(optimizer, 1e5, save_model=False, callbacks=[cb_es, cb_plots])
+model.train(optimizer=optimizer, epochs=1e5, save_model=False, callbacks=[cb_es, cb_plots])

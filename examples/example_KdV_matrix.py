@@ -18,10 +18,10 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname( __file__ ), '..'))
 from tedeous.data import Domain, Conditions, Equation
 from tedeous.model import Model
 from tedeous.models import mat_model
-from tedeous.callbacks import cache, early_stopping, plot
+from tedeous.callbacks import Cache, EarlyStopping, Plots
 from tedeous.optimizers.optimizer import Optimizer
 from tedeous.device import solver_device
-from tedeous.solution import Solution
+
 import time
 
 
@@ -250,20 +250,20 @@ for grid_res in [20,30]:
 
         img_dir=os.path.join(os.path.dirname( __file__ ), 'kdv_img_mat')
 
-        cb_cache = cache.Cache(cache_verbose=True, model_randomize_parameter=1e-5)
+        cb_cache = Cache(verbose=True, model_randomize_parameter=1e-5)
 
-        cb_es = early_stopping.EarlyStopping(eps=1e-8,
+        cb_es = EarlyStopping(eps=1e-8,
                                      loss_window=100,
                                      no_improvement_patience=1000,
                                      patience=5,
                                      randomize_parameter=1e-5,
                                      info_string_every=100)
 
-        cb_plots = plot.Plots(save_every=100, print_every=None, img_dir=img_dir)
+        cb_plots = Plots(save_every=100, print_every=None, img_dir=img_dir)
 
-        optimizer = Optimizer('LBFGS', {'lr': 0.5})
+        optimizer = Optimizer(model=net, optimizer_type='LBFGS', learning_rate= 0.5)
 
-        model.train(optimizer, 5e6, save_model=True, callbacks=[cb_es, cb_plots, cb_cache])
+        model.train(optimizer=optimizer, epochs=5e6, save_model=True, callbacks=[cb_es, cb_plots, cb_cache])
 
         end = time.time()
 

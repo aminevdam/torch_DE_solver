@@ -8,7 +8,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname( __file__ ), '..'))
 
 from tedeous.data import Domain, Conditions, Equation
 from tedeous.model import Model
-from tedeous.callbacks import early_stopping, plot
+from tedeous.callbacks import EarlyStopping, Plots
 from tedeous.optimizers.optimizer import Optimizer
 from tedeous.device import solver_device
 
@@ -168,15 +168,15 @@ model.compile("autograd", lambda_operator=1, lambda_bound=1, weak_form=weak_form
 
 img_dir=os.path.join(os.path.dirname( __file__ ), 'schroedinger_weak_img')
 
-cb_es = early_stopping.EarlyStopping(eps=1e-6,
+cb_es = EarlyStopping(eps=1e-6,
                                     loss_window=10,
                                     no_improvement_patience=500,
                                     patience=10,
                                     randomize_parameter=1e-6,
                                     info_string_every=1)
 
-cb_plots = plot.Plots(save_every=10, print_every=None, img_dir=img_dir)
+cb_plots = Plots(save_every=10, print_every=None, img_dir=img_dir)
 
-optimizer = Optimizer('LBFGS', {'lr': 0.9})
+optimizer = Optimizer(model=net, optimizer_type='LBFGS', learning_rate= 0.9)
 
-model.train(optimizer, 1e5, save_model=False, callbacks=[cb_es, cb_plots])
+model.train(optimizer=optimizer, epochs=1e5, save_model=False, callbacks=[cb_es, cb_plots])

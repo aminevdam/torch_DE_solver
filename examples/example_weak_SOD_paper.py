@@ -28,7 +28,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname( __file__ ), '..'))
 
 from tedeous.data import Domain, Conditions, Equation
 from tedeous.model import Model
-from tedeous.callbacks import early_stopping, plot, cache
+from tedeous.callbacks import EarlyStopping, plot, cache
 from tedeous.optimizers.optimizer import Optimizer
 from tedeous.device import solver_device
 
@@ -203,9 +203,9 @@ def SOD_experiment(grid_res, CACHE):
 
     img_dir=os.path.join(os.path.dirname( __file__ ), 'SOD_NN_img')
 
-    cb_cache = cache.Cache(cache_verbose=False, model_randomize_parameter=1e-5)
+    cb_cache = Cache(verbose=False, model_randomize_parameter=1e-5)
 
-    cb_es = early_stopping.EarlyStopping(eps=1e-6,
+    cb_es = EarlyStopping(eps=1e-6,
                                         loss_window=100,
                                         no_improvement_patience=500,
                                         patience=2,
@@ -214,16 +214,16 @@ def SOD_experiment(grid_res, CACHE):
                                         info_string_every=1000
                                         )
 
-    cb_plots = plot.Plots(save_every=1000, print_every=None, img_dir=img_dir)
+    cb_plots = Plots(save_every=1000, print_every=None, img_dir=img_dir)
 
-    optimizer = Optimizer('Adam', {'lr': 1e-2})
+    optimizer = Optimizer(model=net, optimizer_type='Adam', learning_rate= 1e-2)
 
     if CACHE:
         callbacks = [cb_cache, cb_es, cb_plots]
     else:
         callbacks = [cb_es, cb_plots]
 
-    model.train(optimizer, 1e5, save_model=CACHE, callbacks=callbacks)
+    model.train(optimizer=optimizer, epochs=1e5, save_model=CACHE, callbacks=callbacks)
 
     end = time.time()
 
@@ -234,6 +234,7 @@ def SOD_experiment(grid_res, CACHE):
     rmse_t = torch.from_numpy(rmse_t_grid)
 
     rmse_grid = torch.cartesian_prod(rmse_x, rmse_t).float()
+
     def exact(point):
         N = 100
         Pl = 1

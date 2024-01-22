@@ -15,7 +15,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname( __file__ ), '..'))
 
 from tedeous.data import Domain, Conditions, Equation
 from tedeous.model import Model
-from tedeous.callbacks import early_stopping, plot, cache
+from tedeous.callbacks import EarlyStopping, plot, cache
 from tedeous.optimizers.optimizer import Optimizer
 from tedeous.device import solver_device, check_device
 
@@ -121,15 +121,15 @@ for grid_res in range(20, 110, 10):
 
         model.compile("autograd", lambda_operator=1, lambda_bound=1000)
 
-        cb_es = early_stopping.EarlyStopping(eps=1e-6, abs_loss=0.001)
+        cb_es = EarlyStopping(eps=1e-6, abs_loss=0.001)
 
         img_dir = os.path.join(os.path.dirname( __file__ ), 'wave_eq_img')
 
-        cb_plots = plot.Plots(save_every=1000, print_every=None, img_dir=img_dir)
+        cb_plots = Plots(save_every=1000, print_every=None, img_dir=img_dir)
 
-        optimizer = Optimizer('Adam', {'lr': 1e-3})
+        optimizer = Optimizer(model=net, optimizer_type='Adam', learning_rate= 1e-3)
 
-        model.train(optimizer, 1e5, save_model=False, callbacks=[cb_es, cb_plots])
+        model.train(optimizer=optimizer, epochs=1e5, save_model=False, callbacks=[cb_es, cb_plots])
 
         end = time.time()
 

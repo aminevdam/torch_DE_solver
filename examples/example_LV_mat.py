@@ -21,7 +21,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname( __file__ ), '..'))
 
 from tedeous.data import Domain, Conditions, Equation
 from tedeous.model import Model
-from tedeous.callbacks import cache, early_stopping, plot
+from tedeous.callbacks import Cache, EarlyStopping, plot
 from tedeous.optimizers.optimizer import Optimizer
 from tedeous.device import solver_device
 from tedeous.models import mat_model
@@ -112,20 +112,20 @@ img_dir=os.path.join(os.path.dirname( __file__ ), 'img_Lotka_Volterra_mat')
 
 start = time.time()
 
-cb_cache = cache.Cache(cache_verbose=True, model_randomize_parameter=1e-5)
+cb_cache = Cache(verbose=True, model_randomize_parameter=1e-5)
 
-cb_es = early_stopping.EarlyStopping(eps=1e-6,
+cb_es = EarlyStopping(eps=1e-6,
                                     loss_window=100,
                                     no_improvement_patience=1000,
                                     patience=5,
                                     randomize_parameter=1e-5,
                                     info_string_every=100)
 
-cb_plots = plot.Plots(save_every=100, print_every=None, img_dir=img_dir)
+cb_plots = Plots(save_every=100, print_every=None, img_dir=img_dir)
 
-optimizer = Optimizer('LBFGS', {'lr': 1}, gamma=0.9, decay_every=400)
+optimizer = Optimizer(model=net, optimizer_type='LBFGS', learning_rate= 1, gamma=0.9, decay_every=400)
 
-model.train(optimizer, 1e5, save_model=True, callbacks=[cb_cache, cb_es, cb_plots])
+model.train(optimizer=optimizer, epochs=1e5, save_model=True, callbacks=[cb_cache, cb_es, cb_plots])
 
 end = time.time()
 

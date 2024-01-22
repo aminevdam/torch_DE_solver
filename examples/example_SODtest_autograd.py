@@ -11,7 +11,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname( __file__ ), '..'))
 
 from tedeous.data import Domain, Conditions, Equation
 from tedeous.model import Model
-from tedeous.callbacks import early_stopping, plot
+from tedeous.callbacks import EarlyStopping, plot
 from tedeous.optimizers.optimizer import Optimizer
 from tedeous.device import solver_device, device_type, check_device
 
@@ -177,7 +177,7 @@ model.compile("autograd", lambda_operator=1, lambda_bound=100)
 
 img_dir=os.path.join(os.path.dirname( __file__ ), 'SOD_autograd_img')
 
-cb_es = early_stopping.EarlyStopping(eps=1e-6,
+cb_es = EarlyStopping(eps=1e-6,
                                     loss_window=100,
                                     no_improvement_patience=500,
                                     patience=5,
@@ -185,9 +185,9 @@ cb_es = early_stopping.EarlyStopping(eps=1e-6,
                                     info_string_every=1000,
                                     abs_loss=0.0001)
 
-cb_plots = plot.Plots(save_every=1000, print_every=None, img_dir=img_dir)
+cb_plots = Plots(save_every=1000, print_every=None, img_dir=img_dir)
 
-optimizer = Optimizer('Adam', {'lr': 1e-3})
+optimizer = Optimizer(model=net, optimizer_type='Adam', learning_rate= 1e-3})
 
 model.train(optimizer, 1e5, save_model=True, callbacks=[cb_es, cb_plots])
 

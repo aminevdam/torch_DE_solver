@@ -151,7 +151,7 @@ def p_II_exp(grid_res,nruns,CACHE):
 
         start = time.time()
         model = point_sort_shift_solver(grid, model, p_2, bconds, lambda_bound=100, verbose=0, learning_rate=1e-4,
-                                        eps=1e-7, tmin=1000, tmax=1e5,use_cache=CACHE,cache_dir='../cache/',cache_verbose=True
+                                        eps=1e-7, tmin=1000, tmax=1e5,use_cache=CACHE,cache_dir='../cache/',verbose=True
                                         ,batch_size=None, save_always=False,print_every=None,model_randomize_parameter=1e-6)
         end = time.time()
 

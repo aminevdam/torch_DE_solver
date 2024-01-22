@@ -10,7 +10,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname( __file__ ), '..'))
 
 from tedeous.data import Domain, Conditions, Equation
 from tedeous.model import Model
-from tedeous.callbacks import early_stopping, plot, cache
+from tedeous.callbacks import EarlyStopping, plot, cache
 from tedeous.optimizers.optimizer import Optimizer
 from tedeous.device import solver_device
 
@@ -118,9 +118,9 @@ def experiment(device):
 
     model.compile("NN", lambda_operator=1, lambda_bound=1000, h=0.01)
 
-    cb_cache = cache.Cache(cache_verbose=True, model_randomize_parameter=1e-5)
+    cb_cache = Cache(verbose=True, model_randomize_parameter=1e-5)
 
-    cb_es = early_stopping.EarlyStopping(eps=1e-6,
+    cb_es = EarlyStopping(eps=1e-6,
                                         loss_window=1000,
                                         no_improvement_patience=500,
                                         patience=10,
@@ -129,11 +129,11 @@ def experiment(device):
 
     img_dir=os.path.join(os.path.dirname( __file__ ), 'wave_eq_img')
 
-    cb_plots = plot.Plots(save_every=500, print_every=None, img_dir=img_dir)
+    cb_plots = Plots(save_every=500, print_every=None, img_dir=img_dir)
 
-    optimizer = Optimizer('Adam', {'lr': 1e-2})
+    optimizer = Optimizer(model=net, optimizer_type='Adam', learning_rate= 1e-2)
 
-    model.train(optimizer, 1e5, save_model=False, mixed_precision=True, callbacks=[cb_es, cb_cache, cb_plots])
+    model.train(optimizer=optimizer, epochs=1e5, save_model=False, mixed_precision=True, callbacks=[cb_es, cb_cache, cb_plots])
 
     end = time.time()
 

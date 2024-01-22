@@ -16,7 +16,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname( __file__ ), '..'))
 
 from tedeous.data import Domain, Conditions, Equation
 from tedeous.model import Model
-from tedeous.callbacks import cache, early_stopping
+from tedeous.callbacks import Cache, EarlyStopping
 from tedeous.optimizers.optimizer import Optimizer
 
 
@@ -81,26 +81,26 @@ def solver_burgers(grid_res, cache_flag, optimizer, iterations):
 
     model.compile('autograd', lambda_operator=1, lambda_bound=1)
 
-    cb_cache = cache.Cache(cache_verbose=False, model_randomize_parameter=1e-5)
+    cb_cache = Cache(verbose=False, model_randomize_parameter=1e-5)
 
-    cb_es = early_stopping.EarlyStopping(eps=1e-6,
+    cb_es = EarlyStopping(eps=1e-6,
                                         loss_window=100,
                                         no_improvement_patience=100,
                                         patience=2,
                                         randomize_parameter=1e-5,
                                         verbose=False)
-    if cache:
+    if cache_flag:
         callbacks = [cb_cache, cb_es]
     else:
         callbacks = [cb_es]
     
     if type(optimizer) is list:
         for mode in optimizer:
-            optim = Optimizer(mode, {'lr': 1e-3})
-            model.train(optim, iterations, save_model=cache_flag, callbacks=callbacks)
+            optim = Optimizer(model=net, optimizer_type=mode, learning_rate= 1e-3)
+            model.train(optimizer=optim, epochs=iterations, save_model=cache_flag, callbacks=callbacks)
     else:
-        optim = Optimizer(optimizer, {'lr': 1e-3})
-        model.train(optim, iterations, save_model=cache_flag, callbacks=callbacks)
+        optim = Optimizer(model=net, optimizer_type=optimizer, learning_rate= 1e-3)
+        model.train(optimizer=optim, epochs=iterations, save_model=cache_flag, callbacks=callbacks)
 
     end = time.time()
     time_part = end - start

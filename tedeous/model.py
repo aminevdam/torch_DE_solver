@@ -184,11 +184,13 @@ class Model:
               device: str = 'cpu',
               save_model: bool = False,
               model_name: Union[str, None] = None,
+              print_every: Union[int, None] = None,
               mixed_precision: bool = False) -> Union[torch.nn.Module, torch.nn.Sequential]:
         """
         Trains the model.
 
         Args:
+            print_every:
             optimizer: optimizer for training the net.
             callbacks: list of callbacks used for training.
             epochs: number of epochs to train.
@@ -228,6 +230,11 @@ class Model:
 
             callbacks.on_epoch_end()
 
+            if print_every is not None:
+                if self.t % print_every == 0:
+                    loss = self.cur_loss.item() if isinstance(self.cur_loss, torch.Tensor) else self.cur_loss
+                    info = 'Step = {} loss = {:.6f}.'.format(self.t, loss)
+                    print(info)
             if self.stop_training:
                 break
 

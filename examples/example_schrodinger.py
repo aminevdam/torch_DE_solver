@@ -4,63 +4,60 @@ import os
 import sys
 
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'TRUE'
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname( __file__ ), '..')))
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from tedeous.data import Domain, Conditions, Equation
 from tedeous.model import Model
-from tedeous.callbacks import early_stopping, plot
+from tedeous.callbacks import EarlyStopping, plot
 from tedeous.optimizers.optimizer import Optimizer
 from tedeous.device import solver_device
-
 
 solver_device("cuda")
 
 domain = Domain()
 domain.variable('x', [-5, 5], 41)
-domain.variable('t', [0, np.pi/2], 41)
+domain.variable('t', [0, np.pi / 2], 41)
 
 boundaries = Conditions()
 
 ## BOUNDARY AND INITIAL CONDITIONS
-fun = lambda x: 2/torch.cosh(x)
+fun = lambda x: 2 / torch.cosh(x)
 
 # u(x,0) = 2sech(x), v(x,0) = 0
 x = domain.variable_dict['x']
 boundaries.dirichlet({'x': [-5, 5], 't': 0}, value=fun(x), var=0)
 boundaries.dirichlet({'x': [-5, 5], 't': 0}, value=0, var=1)
 
-
 # u(-5,t) = u(5,t)
-boundaries.periodic([{'x': -5, 't': [0, np.pi/2]}, {'x': 5, 't': [0, np.pi/2]}], var=0)
+boundaries.periodic([{'x': -5, 't': [0, np.pi / 2]}, {'x': 5, 't': [0, np.pi / 2]}], var=0)
 
 # v(-5,t) = v(5,t)
-boundaries.periodic([{'x': -5, 't': [0, np.pi/2]}, {'x': 5, 't': [0, np.pi/2]}], var=1)
-
+boundaries.periodic([{'x': -5, 't': [0, np.pi / 2]}, {'x': 5, 't': [0, np.pi / 2]}], var=1)
 
 # du/dx (-5,t) = du/dx (5,t)
 bop3_real = {
-            'du/dx':
-                {
-                    'coeff': 1,
-                    'du/dx': [0],
-                    'pow': 1,
-                    'var': 0
-                }
+    'du/dx':
+        {
+            'coeff': 1,
+            'du/dx': [0],
+            'pow': 1,
+            'var': 0
+        }
 }
-boundaries.periodic([{'x': -5, 't': [0, np.pi/2]}, {'x': 5, 't': [0, np.pi/2]}], operator=bop3_real, var=0)
+boundaries.periodic([{'x': -5, 't': [0, np.pi / 2]}, {'x': 5, 't': [0, np.pi / 2]}], operator=bop3_real, var=0)
 
 # dv/dx (-5,t) = dv/dx (5,t)
 bop3_imag = {
-            'dv/dx':
-                {
-                    'coeff': 1,
-                    'dv/dx': [0],
-                    'pow': 1,
-                    'var': 1
-                }
+    'dv/dx':
+        {
+            'coeff': 1,
+            'dv/dx': [0],
+            'pow': 1,
+            'var': 1
+        }
 }
 
-boundaries.periodic([{'x': -5, 't': [0, np.pi/2]}, {'x': 5, 't': [0, np.pi/2]}], operator=bop3_imag, var=1)
+boundaries.periodic([{'x': -5, 't': [0, np.pi / 2]}, {'x': 5, 't': [0, np.pi / 2]}], operator=bop3_imag, var=1)
 
 '''
 schrodinger equation:
@@ -143,39 +140,36 @@ equation.add(schrodinger_eq_real)
 equation.add(schrodinger_eq_imag)
 
 net = torch.nn.Sequential(
-        torch.nn.Linear(2, 100),
-        torch.nn.Tanh(),
-        torch.nn.Linear(100, 100),
-        torch.nn.Tanh(),
-        torch.nn.Linear(100, 100),
-        torch.nn.Tanh(),
-        torch.nn.Linear(100, 100),
-        torch.nn.Tanh(),
-        torch.nn.Linear(100, 100),
-        torch.nn.Tanh(),
-        torch.nn.Linear(100, 100),
-        torch.nn.Tanh(),
-        torch.nn.Linear(100, 2)
-    )
+    torch.nn.Linear(2, 100),
+    torch.nn.Tanh(),
+    torch.nn.Linear(100, 100),
+    torch.nn.Tanh(),
+    torch.nn.Linear(100, 100),
+    torch.nn.Tanh(),
+    torch.nn.Linear(100, 100),
+    torch.nn.Tanh(),
+    torch.nn.Linear(100, 100),
+    torch.nn.Tanh(),
+    torch.nn.Linear(100, 100),
+    torch.nn.Tanh(),
+    torch.nn.Linear(100, 2)
+)
 
-model =  Model(net, domain, equation, boundaries)
+model = Model(net, domain, equation, boundaries)
 
 model.compile("autograd", lambda_operator=1, lambda_bound=1)
 
-img_dir=os.path.join(os.path.dirname( __file__ ), 'schrodinger_img')
+img_dir = os.path.join(os.path.dirname(__file__), 'schrodinger_img')
 
-cb_es = early_stopping.EarlyStopping(eps=1e-6,
-                                    loss_window=100,
-                                    no_improvement_patience=500,
-                                    patience=5,
-                                    randomize_parameter=1e-6,
-                                    info_string_every=100)
+cb_es = EarlyStopping(eps=1e-6,
+                      loss_window=100,
+                      no_improvement_patience=500,
+                      patience=5,
+                      randomize_parameter=1e-6,
+                      info_string_every=100)
 
-cb_plots = plot.Plots(save_every=10, print_every=None, img_dir=img_dir)
+cb_plots = Plots(save_every=10, print_every=None, img_dir=img_dir)
 
-optimizer = Optimizer('LBFGS', {'lr': 0.8})
+optimizer = Optimizer(model=net, optimizer_type='LBFGS', learning_rate=0.8)
 
-model.train(optimizer, 1e5, save_model=False, callbacks=[cb_es, cb_plots])
-                                    
-
-
+model.train(optimizer=optimizer, epochs=1e5, save_model=False, callbacks=[cb_es, cb_plots])

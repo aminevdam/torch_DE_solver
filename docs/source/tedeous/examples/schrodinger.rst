@@ -202,5 +202,5 @@ And in the end you have to apply all these stuff in Solver class.
 .. code-block:: python
 
 	 model = Solver(grid, equation, model, 'autograd').solve(lambda_bound=1, verbose=True, learning_rate=0.8,
-                                            eps=1e-6, tmin=1000, tmax=1e5,use_cache=True,cache_dir='../cache/',cache_verbose=True,
+                                            eps=1e-6, tmin=1000, tmax=1e5,use_cache=True,cache_dir='../cache/',verbose=True,
                                             save_always=False,no_improvement_patience=500,print_every = None, optimizer_mode='LBFGS', step_plot_print=False, 						    step_plot_save=True, image_save_dir=img_dir)

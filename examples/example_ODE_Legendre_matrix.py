@@ -16,7 +16,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname( __file__ ), '..'))
 
 from tedeous.data import Domain, Conditions, Equation
 from tedeous.model import Model
-from tedeous.callbacks import cache, early_stopping, plot
+from tedeous.callbacks import Cache, EarlyStopping, Plots
 from tedeous.optimizers.optimizer import Optimizer
 from tedeous.device import solver_device
 from tedeous.models import mat_model
@@ -168,19 +168,19 @@ for n in range(3,10):
 
         img_dir=os.path.join(os.path.dirname( __file__ ), 'leg_img_mat')
 
-        cb_cache = cache.Cache(cache_verbose=True, model_randomize_parameter=1e-5, cache_model=model_arch)
+        cb_cache = Cache(verbose=True, model_randomize_parameter=1e-5, cache_model=model_arch)
 
-        cb_es = early_stopping.EarlyStopping(eps=1e-7,
+        cb_es = EarlyStopping(eps=1e-7,
                                             loss_window=100,
                                             no_improvement_patience=1000,
                                             patience=5,
                                             randomize_parameter=1e-5)
 
-        cb_plots = plot.Plots(save_every=100, print_every=None, img_dir=img_dir)
+        cb_plots = Plots(save_every=100, print_every=None, img_dir=img_dir)
 
-        optimizer = Optimizer('LBFGS', {'lr': 1e-1})
+        optimizer = Optimizer(model=net, optimizer_type='LBFGS', learning_rate= 1e-1)
 
-        model.train(optimizer, 5e6, save_model=False, callbacks=[cb_cache, cb_plots, cb_es])
+        model.train(optimizer=optimizer,epochs= 5e6, save_model=False, callbacks=[cb_cache, cb_plots, cb_es])
 
         end = time.time()
     
