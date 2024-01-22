@@ -1,10 +1,25 @@
 import torch
-from abc import ABC
 from typing import Union
 from tedeous.optimizers import PSO, ZO_AdaMM, ZO_SignSGD
 
-class Optimizer():
-    def __init__(self, model, optimizer_type: str, learning_rate: float = 1e-3, **params):
+
+class Optimizer:
+    """
+    Setting the optimizer for the model.
+    """
+    def __init__(self,
+                 model: Union[torch.nn.Sequential, torch.nn.Module, torch.Tensor],
+                 optimizer_type: str = 'Adam',
+                 learning_rate: float = 1e-3,
+                 **params):
+        """
+        Args:
+            model: model.
+            optimizer_type: optimizer type.
+            learning_rate: determines the step size at each iteration
+            while moving toward a minimum of a loss function.
+            **params: additional parameters for the optimizer (e.g. ZO parameters, beta parameters for Adam).
+        """
         self.model = model
         self.optimizer_type = optimizer_type
         self.learning_rate = learning_rate
@@ -12,13 +27,8 @@ class Optimizer():
         self.params = params
 
     def _optimizer_choice(self):
-        """ Setting optimizer. If optimizer is string type, it will get default settings,
-            or it may be custom optimizer defined by user.
-
-        Args:
-           optimizer: optimizer choice (Adam, SGD, LBFGS, PSO).
-           learning_rate: determines the step size at each iteration
-           while moving toward a minimum of a loss function.
+        """
+        Managing the optimizer choice.
 
         Returns:
             optimizer: ready optimizer.
@@ -39,6 +49,12 @@ class Optimizer():
         return torch_optim
 
     def set_optimizer(self):
+        """
+        Setting optimizer.
+
+       Returns:
+           optimizer: ready optimizer.
+       """
         optimizer = self._optimizer_choice()
         if self.mode in ('NN', 'autograd'):
             optimizer = optimizer(self.model.parameters(), lr=self.learning_rate, **self.params)

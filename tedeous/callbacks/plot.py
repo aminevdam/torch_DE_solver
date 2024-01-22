@@ -37,11 +37,11 @@ class Plots(Callback):
         """
 
         try:
-            nvars_model = self.net[-1].out_features
+            nvars_model = self.model.net[-1].out_features
         except:
-            nvars_model = self.net.model[-1].out_features
+            nvars_model = self.model.net.model[-1].out_features
 
-        nparams = self.grid.shape[1]
+        nparams = self.model.grid.shape[1]
         fig = plt.figure(figsize=(15, 8))
         for i in range(nvars_model):
             if nparams == 1:

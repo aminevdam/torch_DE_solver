@@ -1,18 +1,18 @@
 import torch
 import numpy as np
-
-from typing import Any
+from typing import Tuple
 from copy import deepcopy
 
 from tedeous.device import check_device
 
+
 class OptimizerStep:
+    """
+    Setting optimizer step function (i.e. closure in terms of pytorch).
+    """
     def __init__(self,
-        mixed_precision: bool,
-        model,
-                 **params):
-
-
+                 mixed_precision: bool,
+                 model):
         self.set_model(model)
         self.optimizer = self.model.optimizer
         self.normalized_loss_stop = self.model.normalized_loss_stop
@@ -26,7 +26,8 @@ class OptimizerStep:
         return self._model
 
     def _amp_mixed(self, mixed_precision: bool):
-        """ Preparation for mixed precsion operations.
+        """
+        Preparation for mixed precision operations.
 
         Args:
             mixed_precision (bool): use or not torch.amp.
@@ -48,6 +49,9 @@ class OptimizerStep:
         self.dtype = torch.float16 if self.model.device == 'cuda' else torch.bfloat16
 
     def _closure_default(self):
+        """
+        Default pytorch closure function. Support CPU mixed_precision.
+        """
         self.optimizer.zero_grad()
         with torch.autocast(device_type=self.model.device, dtype=self.dtype, enabled=self.mixed_precision):
             loss, loss_normalized = self.model.solution_cls.evaluate()
@@ -57,6 +61,9 @@ class OptimizerStep:
         return loss
 
     def _closure_cuda(self):
+        """
+        Closure function for CUDA. Support CUDA mixed_precision.
+        """
         self.optimizer.zero_grad()
         with torch.autocast(device_type=self.model.device, dtype=self.dtype, enabled=self.mixed_precision):
             loss, loss_normalized = self.model.solution_cls.evaluate()
@@ -68,7 +75,30 @@ class OptimizerStep:
         self.cur_loss = loss_normalized if self.normalized_loss_stop else loss
         return loss
 
-    def _closure_zo(self, size_params, mu, N_samples, input_size, d, sampler, gradient_mode):
+    def _closure_zo(self,
+                    size_params: int,
+                    input_size: int,
+                    mu: float,
+                    n_samples: int,
+                    d: int,
+                    sampler: str = 'uniform',
+                    gradient_mode: str = 'central') -> Tuple[list, torch.Tensor]:
+        """
+        Closure function for zeroth-order optimizers.
+
+        Args:
+            size_params: number of optimization parameters.
+                            The calculation occurs automatically. Do not set it manually!
+            input_size: size of the input data (i.e. batch size).
+            n_samples: set size for gradient descent directions.
+            mu: perturbation parameter for each direction in gradient size (i.e. standard deviation).
+            d: problem dimensionality (d = 1 - ODEs, d > 2 - PDEs i.e. [t, x, y, z, etc...]).
+            sampler: random sampling type.
+            gradient_mode: mode for gradient descent directions.
+
+        Returns:
+            zeroth-order gradient estimation.
+        """
         init_model_parameters = deepcopy(dict(self.model.net.state_dict()))
         model_parameters = dict(self.model.net.state_dict()).values()
 
@@ -93,7 +123,7 @@ class OptimizerStep:
                                                             self.model.sampling_N,
                                                             self.model.lambda_update)
 
-        for _ in range(N_samples):
+        for _ in range(n_samples):
             with torch.no_grad():
                 if sampler == 'uniform':
                     u = 2 * (torch.rand(size_params) - 0.5)
@@ -107,27 +137,27 @@ class OptimizerStep:
                 parameter_perturbation(u)
 
             loss_add, _ = self.model.solution_cls.evaluate(self.model.second_order_interactions,
-                                                            self.model.sampling_N,
-                                                            self.model.lambda_update)
+                                                           self.model.sampling_N,
+                                                           self.model.lambda_update)
 
             # param - mu * eps
             with torch.no_grad():
                 parameter_perturbation(-2 * u)
 
             loss_sub, _ = self.model.solution_cls.evaluate(self.model.second_order_interactions,
-                                                            self.model.sampling_N,
-                                                            self.model.lambda_update)
+                                                           self.model.sampling_N,
+                                                           self.model.lambda_update)
 
             with torch.no_grad():
                 if gradient_mode == 'central':
                     # (1/ inp_size * q) * d * [f(x+mu*eps) - f(x-mu*eps)] / 2*mu
-                    grad_coeff = (1 / (input_size * N_samples)) * d * (loss_add - loss_sub) / (2 * mu)
+                    grad_coeff = (1 / (input_size * n_samples)) * d * (loss_add - loss_sub) / (2 * mu)
                 elif gradient_mode == 'forward':
                     # d * [f(x+mu*eps) - f(x)] / mu
-                    grad_coeff = (1 / (input_size * N_samples)) * d * (loss_add - self.cur_loss) / mu
+                    grad_coeff = (1 / (input_size * n_samples)) * d * (loss_add - self.cur_loss) / mu
                 elif gradient_mode == 'backward':
                     # d * [f(x) - f(x-mu*eps)] / mu
-                    grad_coeff = (1 / (input_size * N_samples)) * d * (self.cur_loss - loss_sub) / mu
+                    grad_coeff = (1 / (input_size * n_samples)) * d * (self.cur_loss - loss_sub) / mu
 
                 # coeff * u, i.e. constant multiplied by infinitely small perturbation.
                 current_grad = grads_multiplication(grad_coeff, u)
@@ -137,14 +167,20 @@ class OptimizerStep:
             # load initial model parameters
             self.model.load_state_dict(init_model_parameters)
 
-            loss_checker, _ = self.model.solution_cls.evaluate(self.model.second_order_interactions,
-                                                            self.model.sampling_N,
-                                                            self.model.lambda_update)
-            assert self.cur_loss == loss_checker
+            loss, loss_norm = self.model.solution_cls.evaluate(self.model.second_order_interactions,
+                                                               self.model.sampling_N,
+                                                               self.model.lambda_update)
+            assert self.cur_loss == loss
 
-        return grads
+        return grads, self.cur_loss
 
     def step(self):
+        """
+        Defines optimizer step.
+
+        Returns:
+            closure function.
+        """
         if self.mixed_precision:
             return self._closure_cuda
         elif self.optimizer.optimizer == 'ZO':

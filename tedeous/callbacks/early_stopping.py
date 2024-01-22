@@ -75,7 +75,6 @@ class EarlyStopping(Callback):
 
     def verbose_print(self):
         """
-
         Args:
             no_improvement_patience (int): no improvement steps param. (see patience_check())
             print_every (Union[None, int]): print or save after *print_every* steps.

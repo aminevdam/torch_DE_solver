@@ -13,8 +13,9 @@ from tedeous.device import check_device, solver_device, device_type
 from tedeous.solution import Solution
 from tedeous.optimizers import OptimizerStep, Optimizer
 
+
 class Model():
-    """class for preprocessing"""
+    """The model is an interface for solving equations"""
 
     def __init__(
             self,
@@ -23,6 +24,7 @@ class Model():
             equation: Equation,
             conditions: Conditions):
         """
+
         Args:
             net (Union[torch.nn.Module, torch.Tensor]): neural network or torch.Tensor for mode *mat*
             grid (Domain): object of class Domain
@@ -59,7 +61,15 @@ class Model():
         self.boundary = Bounds(self.grid, prepared_bcs, self.net,
                                mode, weak_form, self.derivative_points)
 
-    def _prepare_lambda(self, lambda_):
+    def _prepare_lambda(self, lambda_: tuple):
+        """
+        Prepares the lambdas to solver form.
+
+        Args:
+            lambda_: tuple of lambdas, where [0] position corresponds to the operator and
+                        [1] corresponds to the boundary conditions.
+
+        """
         with torch.no_grad():
             op = self.operator.operator_compute()
             bval, _, _, _ = self.boundary.apply_bcs()
@@ -67,10 +77,23 @@ class Model():
         self.lambda_bound = lambda_prepare(bval, lambda_[1])
 
     def _loss_parameters(self, **params):
+        """
+        Configures loss function parameters.
+
+        Args:
+            **params: tol (causal loss), weak_form (weak loss)
+
+        """
         self.tol = params.get('tol', 0)
         self.weak_form = params.get('weak_form', None)
 
     def _misc_parameters(self, **params):
+        """
+        Configures miscellaneous parameters.
+
+        Args:
+            **params: lambda_operator, lambda_bound, normalized_loss_stop.
+        """
         model_randomize_parameter = params.get('model_randomize_parameter', 0.01)
 
         self._r = create_random_fn(model_randomize_parameter)
@@ -79,7 +102,12 @@ class Model():
         self.lambda_bound = params.get('lambda_bound', 100)
         self.normalized_loss_stop = params.get('normalized_loss_stop', False)
 
-    def _set_solver_device(self, device):
+    def _set_solver_device(self, device: str):
+        """
+        Method that sets device to 'cpu' or 'cuda'.
+        Args:
+            device: device.
+        """
         solver_device(device)
         self.grid = check_device(self.grid)
         self.net = self.net.to(device_type())
@@ -89,14 +117,12 @@ class Model():
             mode: str = 'autograd',
             **params):
         """
-        
+        Configures the model.
+
         Args:
-            mode: 
-
-
-        Returns:
-
+            mode: Calculation method. (e.g., "NN", "autograd", "mat").
         """
+        print('Compiling model...')
         self._loss_parameters(**params)
         self._misc_parameters(**params)
 
@@ -124,15 +150,30 @@ class Model():
                                      self.lambda_operator, self.lambda_bound, self.tol, self.derivative_points)
 
 
+
     def train(self,
               optimizer: Optimizer,
               callbacks: List[Callback],
               epochs: int = 10000,
-              verbose: int = 0 ,
+              verbose: int = 0,
               print_every: Union[None, int] = None,
               device: str = 'cpu',
-              mixed_precision: bool = False):
+              mixed_precision: bool = False) -> Union[torch.nn.Module, torch.nn.Sequential]:
+        """
+        Trains the model.
 
+        Args:
+            optimizer: optimizer for training the net.
+            callbacks: list of callbacks used for training.
+            epochs: number of epochs to train.
+            verbose: verbosity level.
+            print_every: print every number epochs.
+            device: device to use.
+            mixed_precision: mixed precision (fp16/fp32).
+
+        Returns:
+            the trained model.
+        """
         self.optimizer = optimizer.set_optimizer()
         self._set_solver_device(device)
 
@@ -145,10 +186,13 @@ class Model():
         self.t = 0
         self.stop_training = False
 
+        loss, loss_norm = self.solution_cls.evaluate()
+        self.min_loss = loss_norm if self.normalized_loss_stop else loss
+        
         while self.t < epochs:
             callbacks.on_epoch_begin()
 
-            self.optimizer.step(closure)
+            self.cur_loss = self.optimizer.step(closure)
 
             callbacks.on_epoch_end()
 
@@ -156,3 +200,5 @@ class Model():
                 break
 
         callbacks.on_train_end()
+
+        return self.net
