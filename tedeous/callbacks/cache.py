@@ -112,7 +112,7 @@ class CachePreprocessing:
         """
 
         files = glob.glob(CacheUtils().cache_dir + '\*.tar')
-   
+
         if len(files) == 0:
             best_checkpoint = None
             return best_checkpoint

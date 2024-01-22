@@ -43,10 +43,6 @@ class Optimizer:
             torch_optim = torch.optim.LBFGS
         elif self.optimizer_type == 'PSO':
             torch_optim = PSO
-        elif self.optimizer_type == 'ZO_Adam':
-            torch_optim = ZO_AdaMM
-        elif self.optimizer_type == 'ZO_SignSGD':
-            torch_optim = ZO_SignSGD
 
         return torch_optim
 
