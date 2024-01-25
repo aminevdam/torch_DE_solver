@@ -10,13 +10,15 @@ import os
 import sys
 
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'TRUE'
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname( __file__ ), '..')))
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from tedeous.data import Domain, Conditions, Equation
 from tedeous.model import Model
 from tedeous.callbacks import EarlyStopping, Plots, AdaptiveLambda
 from tedeous.optimizers.optimizer import Optimizer
 from tedeous.device import solver_device
+
+solver_device('cuda')
 
 """
 Preparing grid
@@ -25,8 +27,6 @@ Grid is an essentially torch.Tensor  of a n-D points where n is the problem
 dimensionality
 """
 
-solver_device('cuda')
-
 domain = Domain()
 domain.variable('x', [0, 1], 20)
 domain.variable('t', [0, 1], 20)
@@ -34,10 +34,12 @@ domain.variable('t', [0, 1], 20)
 A = 0.5
 C = 2
 
+
 def func(grid):
-    x, t = grid[:,1],grid[:,0]
+    x, t = grid[:, 1], grid[:, 0]
     return torch.sin(np.pi * x) * torch.cos(C * np.pi * t) + \
-            A * torch.sin(2 * C * np.pi * x) * torch.cos(4 * C * np.pi * t)
+        A * torch.sin(2 * C * np.pi * x) * torch.cos(4 * C * np.pi * t)
+
 
 boundaries = Conditions()
 
@@ -51,13 +53,13 @@ boundaries.dirichlet({'t': [0, 1], 'x': 1}, value=func)
 boundaries.dirichlet({'t': 0, 'x': [0, 1]}, value=func)
 
 # Initial conditions (operator) at t=0
-bop4= {
-        'du/dt':
-            {
-                'coeff': 1,
-                'du/dt': [0],
-                'pow': 1,
-            }
+bop4 = {
+    'du/dt':
+        {
+            'coeff': 1,
+            'du/dt': [0],
+            'pow': 1,
+        }
 }
 boundaries.operator({'t': 0, 'x': [0, 1]}, operator=bop4, value=func)
 
@@ -75,7 +77,7 @@ wave_eq = {
         {
             'coeff': 1,
             'd2u/dt2': [0, 0],
-            'pow':1
+            'pow': 1
         }
 }
 
@@ -92,24 +94,24 @@ net = torch.nn.Sequential(
     torch.nn.Tanh(),
     torch.nn.Linear(256, 1))
 
-model =  Model(net, domain, equation, boundaries)
-
-model.compile("autograd", lambda_operator=1, lambda_bound=100)
+model = Model(net, domain, equation, boundaries)
 
 cb_es = EarlyStopping(eps=1e-7,
-                                    loss_window=1000,
-                                    no_improvement_patience=1000,
-                                    patience=10,
-                                    randomize_parameter=1e-5,
-                                    abs_loss=0.1,
-                                    info_string_every=500)
+                      loss_window=1000,
+                      no_improvement_patience=1000,
+                      patience=10,
+                      randomize_parameter=1e-5,
+                      abs_loss=0.1,
+                      info_string_every=500)
 
-img_dir=os.path.join(os.path.dirname( __file__ ), 'wave_eq_img')
+img_dir = os.path.join(os.path.dirname(__file__), 'wave_eq_img_adaptive_lambdas')
 
-cb_plots = Plots(save_every=500, print_every=None, img_dir=img_dir)
+cb_plots = Plots(save_every=None, print_every=500, img_dir=img_dir)
 
 cb_lambda = AdaptiveLambda()
 
-optimizer = Optimizer(model=net, optimizer_type='Adam', learning_rate= 1e-3, gamma=0.9, decay_every=1000)
+optimizer = Optimizer(model=net, optimizer_type='Adam', learning_rate=1e-3)
 
-model.train(optimizer=optimizer, epochs=1e5, save_model=False, device='cuda', callbacks=[cb_es, cb_plots, cb_lambda])
+model.compile("autograd", lambda_operator=1, lambda_bound=100)
+
+model.train(optimizer=optimizer, epochs=1e5, verbose=1, save_model=False, callbacks=[cb_es, cb_plots, cb_lambda])

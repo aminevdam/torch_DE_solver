@@ -18,6 +18,9 @@ from tedeous.model import Model
 from tedeous.callbacks import EarlyStopping, Plots, Cache
 from tedeous.optimizers.optimizer import Optimizer
 from tedeous.models import mat_model
+from tedeous.device import solver_device
+
+solver_device('cpu')
 
 exp_dict_list = []
 
@@ -114,7 +117,7 @@ for grid_res in range(20, 110, 10):
 
         cb_es = EarlyStopping(eps=1e-7, abs_loss=0.001, info_string_every=100)
 
-        cb_cache = Cache(verbose=True, model_randomize_parameter=1e-5)
+        cb_cache = Cache(model_randomize_parameter=1e-5)
 
         img_dir = os.path.join(os.path.dirname(__file__), 'wave_eq_img')
 
@@ -122,7 +125,7 @@ for grid_res in range(20, 110, 10):
 
         optimizer = Optimizer(model=net, optimizer_type='LBFGS', learning_rate=1e-1)
 
-        model.train(optimizer=optimizer, epochs=5e6, save_model=False, device='cpu', callbacks=[cb_es, cb_plots])
+        model.train(optimizer=optimizer, epochs=5e6, verbose=1, save_model=False,  callbacks=[cb_es, cb_plots])
 
         end = time.time()
 

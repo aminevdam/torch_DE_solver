@@ -12,6 +12,9 @@ from tedeous.data import Domain, Conditions, Equation
 from tedeous.model import Model
 from tedeous.callbacks import EarlyStopping, Plots, Cache
 from tedeous.optimizers.optimizer import Optimizer
+from tedeous.device import solver_device
+
+
 
 devices = ['cpu', 'cuda']
 mixed_precision = [True, False]
@@ -25,6 +28,7 @@ result = {
 
 
 def experiment(device):
+    solver_device(device)
     grid_res = 50
 
     domain = Domain()
@@ -115,7 +119,7 @@ def experiment(device):
 
     model.compile("NN", lambda_operator=1, lambda_bound=1000, h=0.01)
 
-    cb_cache = Cache(verbose=True, model_randomize_parameter=1e-5)
+    cb_cache = Cache(model_randomize_parameter=1e-5)
 
     cb_es = EarlyStopping(eps=1e-6,
                           loss_window=1000,
@@ -130,7 +134,7 @@ def experiment(device):
 
     optimizer = Optimizer(model=net, optimizer_type='Adam', learning_rate=1e-2)
 
-    model.train(optimizer=optimizer, epochs=1e5, save_model=False, mixed_precision=True, device=device,
+    model.train(optimizer=optimizer, epochs=1e5, verbose=1, save_model=False, mixed_precision=True,
                 callbacks=[cb_es, cb_cache, cb_plots])
 
     end = time.time()
@@ -141,7 +145,7 @@ def experiment(device):
 
     model1.compile("NN", lambda_operator=1, lambda_bound=1000, h=0.01)
 
-    model1.train(optimizer=optimizer, epochs=1e5, save_model=False, mixed_precision=False, device=device,
+    model1.train(optimizer=optimizer, epochs=1e5, verbose=1, save_model=False, mixed_precision=False,
                  callbacks=[cb_es, cb_cache, cb_plots])
 
     end_1 = time.time()

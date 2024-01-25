@@ -7,7 +7,8 @@ from tedeous.utils import create_random_fn
 
 
 class EarlyStopping(Callback):
-    """ Class for using adaptive stop criterias at training process.
+    """
+    Class for using adaptive stop criterion at training process.
     """
     def __init__(self,
                  eps: float = 1e-5,
@@ -18,7 +19,6 @@ class EarlyStopping(Callback):
                  normalized_loss: bool = False,
                  randomize_parameter: float = 1e-5,
                  info_string_every: Union[int, None] = None,
-                 verbose: bool = True
                  ):
         """
         Args:
@@ -34,7 +34,6 @@ class EarlyStopping(Callback):
                                         model weights to avoid local optima. Defaults to 1e-5.
             info_string_every (Union[int, None], optional): prints the loss state after every *int*
                                                     step. Defaults to None.
-            verbose (bool, optional): print or not info about loss and current state of stopping criteria. Defaults to True.
         """
         super().__init__()
         self.eps = eps
@@ -47,11 +46,10 @@ class EarlyStopping(Callback):
         self._t_imp_start = 0
         self._r = create_random_fn(randomize_parameter)
         self.print_every = info_string_every if info_string_every is not None else np.inf
-        self.verbose = verbose
 
     def _line_create(self):
-        """ Approximating last_loss list (len(last_loss)=loss_oscillation_window) by the line.
-
+        """
+        Approximating last_loss list (len(last_loss)=loss_oscillation_window) by the line.
         """
         self._line = np.polyfit(range(self.loss_window), self.last_loss, 1)
 
@@ -68,10 +66,10 @@ class EarlyStopping(Callback):
                 self._check = 'window_check'
 
     def _patience_check(self):
-        """ Stopping criteria. We control the minimum loss and count steps
-        when the current loss is bigger then min_loss. If these steps equal to
+        """
+        Stopping criteria. We control the minimum loss and count steps
+        when the current loss is bigger than min_loss. If these steps equal to
         no_improvement_patience parameter, the stopping criteria will be achieved.
-
         """
         if (self.t - self._t_imp_start) == self.no_improvement_patience and self._check is None:
             self._stop_dings += 1
@@ -80,7 +78,8 @@ class EarlyStopping(Callback):
             self._check = 'patience_check'
 
     def _absloss_check(self):
-        """ Stopping criteria. If current loss absolute value is lower then *abs_loss* param,
+        """
+        Stopping criteria. If current loss absolute value is lower than *abs_loss* param,
         the stopping criteria will be achieved.
         """
         if self.abs_loss is not None and self.model.cur_loss < self.abs_loss and self._check is None:
@@ -88,7 +87,8 @@ class EarlyStopping(Callback):
             self._check = 'absloss_check'
 
     def verbose_print(self):
-        """ print info about loss and stopping criteria.
+        """
+        print info about loss and stopping criteria.
         """
 
         if self._check == 'window_check':
@@ -120,6 +120,7 @@ class EarlyStopping(Callback):
         self.min_loss = self.model.min_loss
 
     def on_epoch_end(self, logs=None):
+        self.verbose = self.params['verbose']
         try:
             self.last_loss[(self.t - 1) % self.loss_window] = self.model.cur_loss
         except:
@@ -133,7 +134,7 @@ class EarlyStopping(Callback):
             self.min_loss = self.model.cur_loss.item()
             self._t_imp_start = self.t
 
-        if self.verbose:
+        if self.verbose >= 1:
             self.verbose_print()
         if self._stop_dings >= self.patience:
             self.model.stop_training = True

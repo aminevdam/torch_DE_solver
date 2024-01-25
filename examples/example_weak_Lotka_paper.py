@@ -23,6 +23,9 @@ from tedeous.data import Domain, Conditions, Equation
 from tedeous.model import Model
 from tedeous.callbacks import EarlyStopping,Plots, Cache
 from tedeous.optimizers.optimizer import Optimizer
+from tedeous.device import solver_device
+
+solver_device('cpu')
 
 alpha = 20.
 beta = 20.
@@ -121,7 +124,7 @@ def Lotka_experiment(grid_res, CACHE):
 
     cb_es = EarlyStopping(eps=1e-6, no_improvement_patience=500, info_string_every=500)
 
-    cb_cache = Cache(verbose=True, model_randomize_parameter=1e-5)
+    cb_cache = Cache(model_randomize_parameter=1e-5)
 
     img_dir=os.path.join(os.path.dirname( __file__ ), 'img_weak_Lotka_Volterra_paper')
 
@@ -135,7 +138,7 @@ def Lotka_experiment(grid_res, CACHE):
         callbacks = [cb_es, cb_plots]
 
     start = time.time()
-    model.train(optimizer=optimizer, epochs=5e6, save_model=CACHE, device='cpu', callbacks=callbacks)
+    model.train(optimizer=optimizer, epochs=5e6, save_model=CACHE,  callbacks=callbacks)
 
     end = time.time()
     

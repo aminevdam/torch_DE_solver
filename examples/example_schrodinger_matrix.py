@@ -8,9 +8,12 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from tedeous.data import Domain, Conditions, Equation
 from tedeous.model import Model
-from tedeous.callbacks import Cache, EarlyStopping, Plots
+from tedeous.callbacks import Cache, EarlyStopping, Plots, LRScheduler
 from tedeous.optimizers.optimizer import Optimizer
 from tedeous.models import mat_model
+from tedeous.device import solver_device
+
+solver_device('cpu')
 
 domain = Domain()
 domain.variable('x', [-5, 5], 41)
@@ -145,7 +148,7 @@ model.compile("mat", lambda_operator=1, lambda_bound=1, derivative_points=5)
 
 img_dir = os.path.join(os.path.dirname(__file__), 'schrodinger_img_mat')
 
-cb_cache = Cache(verbose=False, model_randomize_parameter=1e-6)
+cb_cache = Cache(model_randomize_parameter=1e-6)
 
 cb_es = EarlyStopping(eps=1e-6,
                       loss_window=100,
@@ -156,6 +159,8 @@ cb_es = EarlyStopping(eps=1e-6,
 
 cb_plots = Plots(save_every=100, print_every=None, img_dir=img_dir)
 
-optimizer = Optimizer(model=net, optimizer_type='LBFGS', learning_rate=0.8, gamma=0.9, decay_every=200)
+scheduler = LRScheduler(gamma=0.9, decay_rate=200)
 
-model.train(optimizer=optimizer, epochs=1e5, save_model=False, device='cpu', callbacks=[cb_cache, cb_es, cb_plots])
+optimizer = Optimizer(model=net, optimizer_type='LBFGS', learning_rate=0.8)
+
+model.train(optimizer=optimizer, epochs=1e5, save_model=False,  callbacks=[cb_cache, cb_es, cb_plots])

@@ -3,15 +3,16 @@ import numpy as np
 import os
 import sys
 
-
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'TRUE'
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname( __file__ ), '..')))
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from tedeous.data import Domain, Conditions, Equation
 from tedeous.model import Model
 from tedeous.callbacks import EarlyStopping, Plots
 from tedeous.optimizers.optimizer import Optimizer
+from tedeous.device import solver_device
 
+solver_device('cpu')
 
 m = 0.2
 L = 1
@@ -50,24 +51,31 @@ net = torch.nn.Sequential(
     torch.nn.Linear(100, 1)
 )
 
+
 def k_oil(x):
-    return (1-net(x))**2
+    return (1 - net(x)) ** 2
+
 
 def k_water(x):
-    return (net(x))**2
+    return (net(x)) ** 2
+
 
 def dk_water(x):
-    return 2*net(x)
+    return 2 * net(x)
+
 
 def dk_oil(x):
-    return -2*(1-net(x))
+    return -2 * (1 - net(x))
+
 
 def df(x):
-    return (dk_water(x)*(k_water(x)+mu_water/mu_o*k_oil(x))-
-            k_water(x)*(dk_water(x)+mu_water/mu_o*dk_oil(x)))/(k_water(x)+mu_water/mu_o*k_oil(x))**2
+    return (dk_water(x) * (k_water(x) + mu_water / mu_o * k_oil(x)) -
+            k_water(x) * (dk_water(x) + mu_water / mu_o * dk_oil(x))) / (k_water(x) + mu_water / mu_o * k_oil(x)) ** 2
+
 
 def coef_model(x):
-    return -Q/Sq*df(x)
+    return -Q / Sq * df(x)
+
 
 equation = Equation()
 
@@ -82,7 +90,7 @@ buckley_eq = {
         {
             'coeff': coef_model,
             'ds/dx': [0],
-            'pow':1
+            'pow': 1
         }
 }
 
@@ -90,24 +98,20 @@ equation.add(buckley_eq)
 
 model = Model(net, domain, equation, boundaries)
 
-model.compile('autograd', lambda_operator=1, lambda_bound=1)
+model.compile('autograd',  lambda_operator=1, lambda_bound=1)
 
-img_dir=os.path.join(os.path.dirname( __file__ ), 'Buckley_NN_img')
-
+img_dir = os.path.join(os.path.dirname(__file__), 'Buckley_NN_img')
 
 cb_es = EarlyStopping(eps=1e-6,
-                                     loss_window=100,
-                                     no_improvement_patience=500,
-                                     patience=5,
-                                     abs_loss=1e-5,
-                                     randomize_parameter=1e-5,
-                                     info_string_every=500)
+                      loss_window=100,
+                      no_improvement_patience=500,
+                      patience=5,
+                      abs_loss=1e-5,
+                      randomize_parameter=1e-5,
+                      info_string_every=500)
 
 cb_plots = Plots(save_every=500, print_every=None, img_dir=img_dir)
 
-optimizer = Optimizer(model=net, optimizer_type='Adam', learning_rate= 1e-3)
+optimizer = Optimizer(model=net, optimizer_type='Adam', learning_rate=1e-3)
 
-model.train(optimizer=optimizer, epochs=1e6, save_model=False, device='cpu', callbacks=[cb_es, cb_plots])
-                                    
-                                     
-                                    
+model.train(optimizer=optimizer, epochs=1e6, save_model=False, callbacks=[cb_es, cb_plots])

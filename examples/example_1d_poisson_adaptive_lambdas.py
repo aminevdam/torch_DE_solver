@@ -10,9 +10,11 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from tedeous.data import Domain, Conditions, Equation
 from tedeous.model import Model
-from tedeous.callbacks import AdaptiveLambda, Cache, EarlyStopping, Plots
+from tedeous.callbacks import AdaptiveLambda, Cache, EarlyStopping, Plots, LRScheduler
 from tedeous.optimizers.optimizer import Optimizer
+from tedeous.device import solver_device
 
+solver_device('cpu')
 
 a = 4
 
@@ -76,30 +78,33 @@ model.compile('autograd', lambda_operator=1, lambda_bound=17)
 
 img_dir = os.path.join(os.path.dirname(__file__), 'poisson_img')
 
-cb_cache = Cache(verbose=True, model_randomize_parameter=1e-5)
+cache = Cache(model_randomize_parameter=1e-5)
 
-cb_es = EarlyStopping(eps=1e-9,
-                      loss_window=100,
-                      no_improvement_patience=1000,
-                      patience=5,
-                      info_string_every=1000,
-                      randomize_parameter=1e-5)
+es = EarlyStopping(eps=1e-9,
+                   loss_window=100,
+                   no_improvement_patience=1000,
+                   patience=5,
+                   info_string_every=1000,
+                   randomize_parameter=1e-5)
 
-cb_plots = Plots(save_every=1000, print_every=None, img_dir=img_dir)
+plots = Plots(save_every=1000,
+              print_every=100,
+              img_dir=img_dir)
 
-cb_lambda = AdaptiveLambda()
+al = AdaptiveLambda()
+
+scheduler = LRScheduler(gamma=0.9,
+                        decay_rate=1000)
 
 optimizer = Optimizer(model=net,
                       optimizer_type='Adam',
-                      learning_rate=1e-3,
-                      gamma=0.9,
-                      decay_every=1000)
+                      learning_rate=1e-3)
 
-model.train(optimizer=optimizer, epochs=1e5, save_model=True,device='cpu', callbacks=[cb_lambda, cb_cache, cb_es, cb_plots])
-
-plt.plot(grid.detach().numpy(), u(grid, a).detach().numpy(), label='Exact')
-plt.plot(grid.detach().numpy(), net(grid).detach().numpy(), '--', label='Predicted')
-plt.xlabel('x')
-plt.ylabel('y')
-plt.legend(loc='upper right')
-plt.show()
+model.train(optimizer=optimizer, epochs=1e5, save_model=True, verbose=1, callbacks=[al, cache, es, plots, scheduler])
+#
+# plt.plot(grid.detach().numpy(), u(grid, a).detach().numpy(), label='Exact')
+# plt.plot(grid.detach().numpy(), net(grid).detach().numpy(), '--', label='Predicted')
+# plt.xlabel('x')
+# plt.ylabel('y')
+# plt.legend(loc='upper right')
+# plt.show()

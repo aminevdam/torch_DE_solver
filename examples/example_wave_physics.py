@@ -17,6 +17,9 @@ from tedeous.data import Domain, Conditions, Equation
 from tedeous.model import Model
 from tedeous.callbacks import EarlyStopping, Plots, Cache
 from tedeous.optimizers.optimizer import Optimizer
+from tedeous.device import solver_device
+
+solver_device('cuda')
 
 """
 Preparing grid
@@ -153,19 +156,19 @@ def wave_experiment(grid_res):
 
     model = Model(net, domain, equation, boundaries)
 
-    model.compile("autograd", lambda_operator=1, lambda_bound=100)
+    model.compile("autograd", lambda_operator=1,  lambda_bound=100)
 
     cb_es = EarlyStopping(eps=1e-5, info_string_every=100)
 
-    cb_cache = Cache(verbose=True, model_randomize_parameter=1e-6)
+    cb_cache = Cache(model_randomize_parameter=1e-6)
 
     img_dir = os.path.join(os.path.dirname(__file__), 'wave_img')
 
-    cb_plots = Plots(save_every=100, print_every=None, img_dir=img_dir)
+    cb_plots = Plots(save_every=None, print_every=50, img_dir=img_dir)
 
     optimizer = Optimizer(model=net, optimizer_type='Adam', learning_rate=1e-4)
 
-    model.train(optimizer=optimizer, epochs=5e6, save_model=True, device='cuda', callbacks=[cb_es, cb_plots, cb_cache])
+    model.train(optimizer=optimizer, epochs=5e6, save_model=True, callbacks=[cb_es, cb_plots, cb_cache])
 
     end = time.time()
 

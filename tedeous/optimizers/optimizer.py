@@ -1,9 +1,6 @@
 import torch
 from typing import Union
 from tedeous.optimizers.pso import PSO
-from tedeous.optimizers.zo_sgd import ZO_SignSGD
-from tedeous.optimizers.zo_adam import ZO_AdaMM
-
 
 class Optimizer:
     """
@@ -25,7 +22,6 @@ class Optimizer:
         self.model = model
         self.optimizer_type = optimizer_type
         self.learning_rate = learning_rate
-        self.mode = params.get('mode', 'NN')
         self.params = params
 
     def _optimizer_choice(self):
@@ -46,7 +42,7 @@ class Optimizer:
 
         return torch_optim
 
-    def set_optimizer(self):
+    def set_optimizer(self, mode):
         """
         Setting optimizer.
 
@@ -54,8 +50,8 @@ class Optimizer:
            optimizer: ready optimizer.
        """
         optimizer = self._optimizer_choice()
-        if self.mode in ('NN', 'autograd'):
+        if mode in ('NN', 'autograd'):
             optimizer = optimizer(self.model.parameters(), lr=self.learning_rate, **self.params)
-        elif self.mode == 'mat':
+        elif mode == 'mat':
             optimizer = optimizer([self.model.requires_grad_()], lr=self.learning_rate, **self.params)
         return optimizer

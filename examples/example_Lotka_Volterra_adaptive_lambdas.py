@@ -126,13 +126,13 @@ img_dir = os.path.join(os.path.dirname(__file__), 'img_Lotka_Volterra')
 
 cb_plots = Plots(save_every=2000, print_every=None, img_dir=img_dir)
 
-cb_lambda = adaptive_lambda.AdaptiveLambda()
+cb_lambda = AdaptiveLambda()
 
 optimizer = Optimizer(model=net, optimizer_type='Adam', learning_rate= 5e-4)
 
 start = time.time()
 
-model.train(optimizer=optimizer, epochs=5e6, save_model=False, device='cuda', callbacks=[cb_es, cb_plots, cb_lambda])
+model.train(optimizer=optimizer, epochs=5e6, save_model=False,  callbacks=[cb_es, cb_plots, cb_lambda])
 
 end = time.time()
 

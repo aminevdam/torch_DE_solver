@@ -9,22 +9,6 @@ import numpy as np
 import torch
 from tedeous.device import check_device
 
-def create_random_fn(eps: float) -> callable:
-    """ Create random tensors to add some variance to torch neural network.
-
-    Args:
-        eps (float): randomize parameter.
-
-    Returns:
-        callable: creating random params function.
-    """
-    def randomize_params(m):
-        if isinstance(m, torch.nn.Linear) or isinstance(m, torch.nn.Conv2d):
-            m.weight.data = m.weight.data + \
-                            (2 * torch.randn(m.weight.size()) - 1) * eps
-            m.bias.data = m.bias.data + (2 * torch.randn(m.bias.size()) - 1) * eps
-
-    return randomize_params
 
 def create_random_fn(eps: float) -> callable:
     """ Create random tensors to add some variance to torch neural network.
@@ -35,6 +19,7 @@ def create_random_fn(eps: float) -> callable:
     Returns:
         callable: creating random params function.
     """
+
     def randomize_params(m):
         if isinstance(m, torch.nn.Linear) or isinstance(m, torch.nn.Conv2d):
             m.weight.data = m.weight.data + \
@@ -42,11 +27,12 @@ def create_random_fn(eps: float) -> callable:
             m.bias.data = m.bias.data + (2 * torch.randn(m.bias.size()) - 1) * eps
 
     return randomize_params
+
 
 def samples_count(second_order_interactions: bool,
                   sampling_N: int,
                   op_length: list,
-                  bval_length:list) -> Tuple[int, int]:
+                  bval_length: list) -> Tuple[int, int]:
     """ Count samples for variance based sensitivity analysis.
 
     Args:
@@ -71,6 +57,7 @@ def samples_count(second_order_interactions: bool,
         sampling_amount = sampling_N * (sampling_D + 2)
     return sampling_amount, sampling_D
 
+
 def lambda_print(lam: torch.Tensor, keys: List) -> None:
     """ Print lambda value.
 
@@ -83,10 +70,11 @@ def lambda_print(lam: torch.Tensor, keys: List) -> None:
     for val, key in zip(lam, keys):
         print('lambda_{}: {}'.format(key, val.item()))
 
+
 def bcs_reshape(
-    bval: torch.Tensor,
-    true_bval: torch.Tensor,
-    bval_length: List) -> Tuple[dict, dict, dict, dict]:
+        bval: torch.Tensor,
+        true_bval: torch.Tensor,
+        bval_length: List) -> Tuple[dict, dict, dict, dict]:
     """ Preprocessing for lambda evaluating.
 
     Args:
@@ -103,9 +91,10 @@ def bcs_reshape(
     bval_diff = bval - true_bval
 
     bcs = torch.cat([bval_diff[0:bval_length[i], i].reshape(-1)
-                                        for i in range(bval_diff.shape[-1])])
+                     for i in range(bval_diff.shape[-1])])
 
     return bcs
+
 
 def remove_all_files(folder: str) -> None:
     """ Remove all files from folder.
@@ -127,6 +116,7 @@ def remove_all_files(folder: str) -> None:
 class CacheUtils:
     """ Mixin class with auxiliary methods
     """
+
     def __init__(self):
         try:
             file = __file__
@@ -166,8 +156,8 @@ class CacheUtils:
 
     @staticmethod
     def model_mat(model: torch.Tensor,
-                       domain: Any,
-                       cache_model: torch.nn.Module=None) -> Tuple[torch.Tensor, torch.nn.Module]:
+                  domain: Any,
+                  cache_model: torch.nn.Module = None) -> Tuple[torch.Tensor, torch.nn.Module]:
         """ Create grid and model for *NN or autograd* modes from grid
             and model of *mat* mode.
 
@@ -221,9 +211,9 @@ class CacheUtils:
         return equation
 
     def save_model(
-        self,
-        model: torch.nn.Module,
-        name: Union[str, None] = None) -> None:
+            self,
+            model: torch.nn.Module,
+            name: Union[str, None] = None) -> None:
         """
         Saved model in a cache (uses for 'NN' and 'autograd' methods).
         Args:
@@ -280,7 +270,7 @@ class CacheUtils:
             loss = optimizer.step(closure)
             t += 1
             print('Interpolate from trained model t={}, loss={}'.format(
-                    t, loss))
+                t, loss))
 
         self.save_model(net_autograd, name=name)
 

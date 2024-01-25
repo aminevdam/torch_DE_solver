@@ -11,6 +11,9 @@ from tedeous.data import Domain, Conditions, Equation
 from tedeous.model import Model
 from tedeous.callbacks import EarlyStopping, Plots, Cache
 from tedeous.optimizers.optimizer import Optimizer
+from tedeous.device import solver_device
+
+solver_device('cpu')
 
 p_l = 1
 v_l = 0
@@ -176,7 +179,7 @@ model.compile("NN", lambda_operator=1, lambda_bound=100, h=h, weak_form=weak_for
 
 img_dir=os.path.join(os.path.dirname( __file__ ), 'SOD_NN_weak_img')
 
-cb_cache = Cache(verbose=False, model_randomize_parameter=1e-5)
+cb_cache = Cache(model_randomize_parameter=1e-5)
 
 cb_es = EarlyStopping(eps=1e-6,
                                     loss_window=100,
@@ -191,4 +194,4 @@ cb_plots = Plots(save_every=100, print_every=None, img_dir=img_dir)
 
 optimizer = Optimizer(model=net, optimizer_type='Adam', learning_rate= 1e-3)
 
-model.train(optimizer=optimizer, epochs=1e5, save_model=False, device='cuda', callbacks=[cb_es, cb_plots])
+model.train(optimizer=optimizer, epochs=1e5, save_model=False,  callbacks=[cb_es, cb_plots])

@@ -16,6 +16,9 @@ from tedeous.data import Domain, Conditions, Equation
 from tedeous.model import Model
 from tedeous.callbacks import EarlyStopping, Plots, Cache
 from tedeous.optimizers.optimizer import Optimizer
+from tedeous.device import solver_device
+
+solver_device('cuda')
 
 """
 Preparing grid
@@ -94,11 +97,7 @@ net = torch.nn.Sequential(
 
 img_dir = os.path.join(os.path.dirname(__file__), 'wave_eq_img')
 
-model = Model(net, domain, equation, boundaries)
-
-model.compile(mode="autograd", lambda_operator=1, lambda_bound=100, h=0.001)
-
-cache = Cache(verbose=1, model_randomize_parameter=1e-5)
+cache = Cache(model_randomize_parameter=1e-5)
 
 es = EarlyStopping(eps=1e-7,
                    loss_window=1000,
@@ -106,10 +105,14 @@ es = EarlyStopping(eps=1e-7,
                    patience=10,
                    randomize_parameter=0,
                    abs_loss=0.1,
-                   info_string_every=10)
+                   info_string_every=500)
 
-plots = Plots(save_every=10, print_every=10, img_dir=img_dir)
+plots = Plots(save_every=500, print_every=500, img_dir=img_dir)
 
 optimizer = Optimizer(model=net, optimizer_type='Adam', learning_rate=1e-3)
 
-model.train(optimizer=optimizer, epochs=10, save_model=True, device='cuda', callbacks=[es, plots, cache])
+model = Model(net, domain, equation, boundaries)
+
+model.compile(mode="autograd",  lambda_operator=1, lambda_bound=100, h=0.001)
+
+model.train(optimizer=optimizer, verbose=1, epochs=1e4, save_model=True, callbacks=[es, plots, cache])

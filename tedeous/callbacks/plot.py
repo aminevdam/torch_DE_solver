@@ -121,12 +121,9 @@ class Plots(Callback):
         """
         printing or saving figures.
         """
-        try:
-            print_flag = self.model.t % self.print_every == 0
-            save_flag = self.model.t % self.save_every == 0
-        except TypeError:
-            print_flag = None
-            save_flag = None
+
+        print_flag = self.model.t % self.print_every == 0 if self.print_every is not None else False
+        save_flag = self.model.t % self.save_every == 0if self.save_every is not None else False
 
         if print_flag or save_flag:
             self.net = self.model.net

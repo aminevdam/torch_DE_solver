@@ -188,7 +188,7 @@ cb_plots = Plots(save_every=1000, print_every=None, img_dir=img_dir)
 
 optimizer = Optimizer(model=net, optimizer_type='Adam', learning_rate=1e-2)
 
-model.train(optimizer=optimizer, epochs=1e5, save_model=False, device='cuda', callbacks=[cb_es, cb_plots])
+model.train(optimizer=optimizer, epochs=1e5, verbose=1, save_model=False, callbacks=[cb_es, cb_plots])
 
 end = time.time()
 

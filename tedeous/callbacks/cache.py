@@ -13,7 +13,6 @@ from copy import deepcopy
 
 import tedeous.model
 from tedeous.device import device_type
-from tedeous.solution import Solution
 from tedeous.callbacks.callback import Callback
 from tedeous.utils import create_random_fn
 from tedeous.utils import CacheUtils
@@ -165,7 +164,7 @@ class CachePreprocessing:
 
     def scheme_interp(self,
                       trained_model: torch.nn.Module,
-                      verbose: bool = False):
+                      verbose: int = 0):
         """ If the cache model has another arcitechure to user's model,
             we will not be able to use it. So we train user's model on the
             outputs of cache model.
@@ -252,7 +251,6 @@ class Cache(Callback):
     def __init__(self,
                  nmodels: Union[int, None] = None,
                  cache_dir: str = '../cache/',
-                 verbose: int = 0,
                  cache_model: Union[torch.nn.Sequential, None] = None,
                  model_randomize_parameter: Union[int, float] = 0,
                  clear_cache: bool = False):
@@ -260,17 +258,15 @@ class Cache(Callback):
         Args:
             nmodels (Union[int, None], optional): maximal number of models that are taken from cache dir. Defaults to None. Defaults to None.
             cache_dir (str, optional): directory with cached models. Defaults to '../cache/'.
-            verbose (bool, optional): printing cache operations. Defaults to False.
             cache_model (Union[torch.nn.Sequential, None], optional): model for mat method, which will be saved in cache. Defaults to None.
             model_randomize_parameter (Union[int, float], optional): creates a random model parameters (weights, biases)
-                multiplied with a given randomize parameter.. Defaults to 0.
+                multiplied with a given randomize parameter. Defaults to 0.
             clear_cache (bool, optional): clear cache directory. Defaults to False.
         """
 
         super().__init__()
         self.nmodels = nmodels
         self.cache_dir = cache_dir
-        self.verbose = verbose
         self.cache_model = cache_model
         self.model_randomize_parameter = model_randomize_parameter
         self.clear_cache = clear_cache
@@ -330,7 +326,8 @@ class Cache(Callback):
             self.model.solution_cls.model = model
 
     def cache(self):
-        """ Wrap for cache_mat and cache_nn methods.
+        """
+        Wrap for cache_mat and cache_nn methods.
         """
 
         if self.model.mode != 'mat':
@@ -339,4 +336,5 @@ class Cache(Callback):
             return self._cache_mat()
 
     def on_train_begin(self, logs=None):
+        self.verbose = self.params['verbose']
         self.cache()

@@ -17,7 +17,9 @@ from tedeous.data import Domain, Conditions, Equation
 from tedeous.model import Model
 from tedeous.callbacks import EarlyStopping, Plots, Cache
 from tedeous.optimizers.optimizer import Optimizer
-from tedeous.device import check_device
+from tedeous.device import check_device, solver_device
+
+solver_device('cuda')
 
 exp_dict_list = []
 
@@ -128,7 +130,7 @@ for grid_res in range(20, 110, 10):
 
         optimizer = Optimizer(model=net, optimizer_type='Adam', learning_rate=1e-3)
 
-        model.train(optimizer=optimizer, epochs=1e5, save_model=False, device='cuda', callbacks=[cb_es, cb_plots])
+        model.train(optimizer=optimizer, epochs=1e5, save_model=False,  callbacks=[cb_es, cb_plots])
 
         end = time.time()
 

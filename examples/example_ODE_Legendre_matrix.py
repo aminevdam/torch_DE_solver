@@ -12,14 +12,16 @@ import sys
 import time
 
 os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname( __file__ ), '..')))
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from tedeous.data import Domain, Conditions, Equation
 from tedeous.model import Model
 from tedeous.callbacks import Cache, EarlyStopping, Plots
 from tedeous.optimizers.optimizer import Optimizer
 from tedeous.models import mat_model
+from tedeous.device import solver_device
 
+solver_device('cpu')
 
 """
 Preparing grid
@@ -31,11 +33,11 @@ dimensionality
 domain = Domain()
 domain.variable('t', [0, 1], 100)
 
-exp_dict_list=[]
+exp_dict_list = []
 
-CACHE=True
+CACHE = True
 
-for n in range(3,10):  
+for n in range(3, 10):
     """
     Preparing boundary conditions (BC)
     
@@ -66,10 +68,10 @@ for n in range(3,10):
     boundaries = Conditions()
     # point t=0
     boundaries.dirichlet({'t': 0}, value=legendre(n)(0))
-    
+
     # point t=1
     bnd2 = torch.from_numpy(np.array([[1]], dtype=np.float64)).float()
-    
+
     # d/dt
     bop2 = {
         '1*du/dt**1':
@@ -80,7 +82,7 @@ for n in range(3,10):
             }
     }
     boundaries.operator({'t': 1}, operator=bop2, value=legendre(n).deriv(1)(1))
-    
+
     """
     Defining Legendre polynomials generating equations
     
@@ -109,21 +111,24 @@ for n in range(3,10):
     
     """
 
+
     # 1-t^2
     def c1(grid):
         return 1 - grid ** 2
+
 
     # -2t
     def c2(grid):
         return -2 * grid
 
+
     equation = Equation()
 
     # operator is  (1-t^2)*d2u/dt2-2t*du/dt+n*(n-1)*u=0 (n=3)
-    legendre_poly= {
+    legendre_poly = {
         '(1-t^2)*d2u/dt2**1':
             {
-                'coeff': c1, #coefficient is a torch.Tensor
+                'coeff': c1,  # coefficient is a torch.Tensor
                 'du/dt': [0, 0],
                 'pow': 1
             },
@@ -131,12 +136,12 @@ for n in range(3,10):
             {
                 'coeff': c2,
                 'u*du/dx': [0],
-                'pow':1
+                'pow': 1
             },
         'n*(n-1)*u**1':
             {
-                'coeff': n*(n+1),
-                'u':  [None],
+                'coeff': n * (n + 1),
+                'u': [None],
                 'pow': 1
             }
     }
@@ -144,7 +149,6 @@ for n in range(3,10):
     equation.add(legendre_poly)
 
     for _ in range(10):
-
         start = time.time()
 
         model_arch = torch.nn.Sequential(
@@ -159,44 +163,46 @@ for n in range(3,10):
 
         net = mat_model(domain, equation)
 
-        model =  Model(net, domain, equation, boundaries)
+        model = Model(net, domain, equation, boundaries)
 
         model.compile("mat", lambda_operator=1, lambda_bound=100)
 
-        img_dir=os.path.join(os.path.dirname( __file__ ), 'leg_img_mat')
+        img_dir = os.path.join(os.path.dirname(__file__), 'leg_img_mat')
 
-        cb_cache = Cache(verbose=True, model_randomize_parameter=1e-5, cache_model=model_arch)
+        cb_cache = Cache(model_randomize_parameter=1e-5, cache_model=model_arch)
 
         cb_es = EarlyStopping(eps=1e-7,
-                                            loss_window=100,
-                                            no_improvement_patience=1000,
-                                            patience=5,
-                                            randomize_parameter=1e-5)
+                              loss_window=100,
+                              no_improvement_patience=1000,
+                              patience=5,
+                              randomize_parameter=1e-5)
 
         cb_plots = Plots(save_every=100, print_every=None, img_dir=img_dir)
 
-        optimizer = Optimizer(model=net, optimizer_type='LBFGS', learning_rate= 1e-1)
+        optimizer = Optimizer(model=net, optimizer_type='LBFGS', learning_rate=1e-1)
 
-        model.train(optimizer=optimizer,epochs= 5e6, save_model=False, device='cpu', callbacks=[cb_cache, cb_plots, cb_es])
+        model.train(optimizer=optimizer, epochs=5e6, save_model=False, verbose=1, callbacks=[cb_cache, cb_plots, cb_es])
 
         end = time.time()
-    
-        print('Time taken {} = {}'.format(n,  end - start))
-        
+
+        print('Time taken {} = {}'.format(n, end - start))
+
         grid = domain.build('mat')
 
-        error_rmse=torch.sqrt(torch.mean((legendre(n)(grid)-net)**2))
+        error_rmse = torch.sqrt(torch.mean((legendre(n)(grid) - net) ** 2))
         print('RMSE {}= {}'.format(n, error_rmse))
-        
-        exp_dict_list.append({'grid_res':100,'time':end - start,'RMSE':error_rmse.detach().numpy(),'type':'L'+str(n),'cache':str(CACHE)})
 
-#import pandas as pd
-#df=pd.DataFrame(exp_dict_list)
-#df.boxplot(by='type',column='RMSE',figsize=(20,10),fontsize=42,showfliers=False)
-#df.boxplot(by='type',column='time',figsize=(20,10),fontsize=42,showfliers=False)
-#df.to_csv('benchmarking_data/legendre_poly_exp_martix.csv')
+        exp_dict_list.append(
+            {'grid_res': 100, 'time': end - start, 'RMSE': error_rmse.detach().numpy(), 'type': 'L' + str(n),
+             'cache': str(CACHE)})
 
-#full paper plot
+# import pandas as pd
+# df=pd.DataFrame(exp_dict_list)
+# df.boxplot(by='type',column='RMSE',figsize=(20,10),fontsize=42,showfliers=False)
+# df.boxplot(by='type',column='time',figsize=(20,10),fontsize=42,showfliers=False)
+# df.to_csv('benchmarking_data/legendre_poly_exp_martix.csv')
+
+# full paper plot
 
 # import seaborn as sns
 

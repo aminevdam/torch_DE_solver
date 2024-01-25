@@ -8,8 +8,11 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from tedeous.data import Domain, Conditions, Equation
 from tedeous.model import Model
-from tedeous.callbacks import  EarlyStopping, Plots
+from tedeous.callbacks import EarlyStopping, Plots
 from tedeous.optimizers.optimizer import Optimizer
+from tedeous.device import solver_device
+
+solver_device('cuda')
 
 grid_res = 30
 
@@ -120,7 +123,7 @@ net = torch.nn.Sequential(
 
 model = Model(net, domain, equation, boundaries)
 
-model.compile('autograd', lambda_operator=1, lambda_bound=1000, tol=0.1)
+model.compile('autograd',  lambda_operator=1, lambda_bound=1000, tol=0.1)
 
 cb_es = EarlyStopping(eps=1e-5,
                       loss_window=100,
@@ -131,8 +134,8 @@ cb_es = EarlyStopping(eps=1e-5,
 
 img_dir = os.path.join(os.path.dirname(__file__), 'navier_stokes_img')
 
-cb_plots = Plots(save_every=5000, print_every=None, img_dir=img_dir)
+cb_plots = Plots(save_every=5000, print_every=500, img_dir=img_dir)
 
-optimizer = Optimizer(model=net, optimizer_type='Adam', lr=1e-5)
+optimizer = Optimizer(model=net, optimizer_type='Adam', learning_rate=1e-5)
 
-model.train(optimizer=optimizer, epochs=1e6, save_model=True, device='cuda', callbacks=[cb_es, cb_plots])
+model.train(optimizer=optimizer, epochs=1e6, save_model=True, callbacks=[cb_es, cb_plots])

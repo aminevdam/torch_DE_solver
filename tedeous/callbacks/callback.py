@@ -1,5 +1,6 @@
 from abc import ABC
 
+
 class Callback(ABC):
     """Base class used to build new callbacks.
 
@@ -25,7 +26,7 @@ class Callback(ABC):
 
     def __init__(self):
         self.print_every = None
-        self.verbose = 0
+        self.verbose = None
         self.validation_data = None
         self._model = None
 

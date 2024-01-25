@@ -19,7 +19,9 @@ from tedeous.model import Model
 from tedeous.callbacks import Cache, EarlyStopping, Plots
 from tedeous.optimizers.optimizer import Optimizer
 from tedeous.device import check_device
+from tedeous.device import solver_device
 
+solver_device('cpu')
 
 def p_I_exp(grid_res, nruns, CACHE):
     
@@ -157,7 +159,7 @@ def p_I_exp(grid_res, nruns, CACHE):
 
         start = time.time()
         
-        cb_cache = Cache(verbose=False, model_randomize_parameter=1e-6)
+        cb_cache = Cache(model_randomize_parameter=1e-6)
 
         cb_es = EarlyStopping(eps=1e-7,
                                             loss_window=100,
@@ -170,7 +172,7 @@ def p_I_exp(grid_res, nruns, CACHE):
 
         optimizer = Optimizer(model=net, optimizer_type='Adam', learning_rate= 1e-4)
 
-        model.train(optimizer=optimizer, epochs=1e5, save_model=False, device='cpu', callbacks=[cb_cache, cb_es, cb_plots])
+        model.train(optimizer=optimizer, epochs=1e5, save_model=False, callbacks=[cb_cache, cb_es, cb_plots])
 
         end = time.time()
 

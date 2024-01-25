@@ -18,7 +18,9 @@ from tedeous.model import Model
 from tedeous.callbacks import Cache, EarlyStopping, Plots
 from tedeous.optimizers.optimizer import Optimizer
 from tedeous.device import check_device, device_type
+from tedeous.device import solver_device
 
+solver_device('cuda')
 
 exp_dict_list=[]
 
@@ -194,7 +196,7 @@ for grid_res in [30,50,100]:
 
         img_dir = os.path.join(os.path.dirname( __file__ ), 'kdv_solitary_img')
 
-        cb_cache = Cache(verbose=True, model_randomize_parameter=1e-6)
+        cb_cache = Cache(model_randomize_parameter=1e-6)
 
         cb_es = EarlyStopping(eps=1e-6,
                                             loss_window=100,
@@ -206,7 +208,7 @@ for grid_res in [30,50,100]:
 
         optimizer = Optimizer(model=net, optimizer_type='Adam', learning_rate= 1e-4)
 
-        model.train(optimizer=optimizer, epochs=1e5, save_model=True, device='cuda', callbacks=[cb_es, cb_cache, cb_plots])
+        model.train(optimizer=optimizer, epochs=1e5, verbose=1, save_model=True,  callbacks=[cb_es, cb_cache, cb_plots])
 
         end = time.time()
         

@@ -23,6 +23,9 @@ from tedeous.data import Domain, Conditions, Equation
 from tedeous.model import Model
 from tedeous.callbacks import Cache, EarlyStopping, Plots
 from tedeous.optimizers.optimizer import Optimizer
+from tedeous.device import solver_device
+
+solver_device('cpu')
 
 alpha = 20.
 beta = 20.
@@ -117,7 +120,7 @@ img_dir=os.path.join(os.path.dirname( __file__ ), 'img_Lotka_Volterra')
 
 start = time.time()
 
-cb_cache = Cache(verbose=True, model_randomize_parameter=1e-5)
+cb_cache = Cache(model_randomize_parameter=1e-5)
 
 cb_es = EarlyStopping(eps=1e-6,
                                     loss_window=100,
@@ -129,7 +132,7 @@ cb_plots = Plots(save_every=1000, print_every=None, img_dir=img_dir)
 
 optimizer = Optimizer(model=net, optimizer_type='Adam', learning_rate= 1e-4)
 
-model.train(optimizer=optimizer, epochs=5e6, save_model=True, device='cpu', callbacks=[cb_es, cb_cache, cb_plots])
+model.train(optimizer=optimizer, epochs=5e6, verbose=1, save_model=True,  callbacks=[cb_es, cb_cache, cb_plots])
 
 end = time.time()
     

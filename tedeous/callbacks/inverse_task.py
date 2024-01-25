@@ -6,7 +6,8 @@ from tedeous.callbacks.callback import Callback
 
 
 class InverseTask(Callback):
-    """Class for printing the parameters during inverse task solution.
+    """
+    Class for printing the parameters during inverse task solution.
     """
     def __init__(self,
                  parameters: dict,
@@ -21,7 +22,8 @@ class InverseTask(Callback):
         self.info_string_every = info_string_every
     
     def str_param(self):
-        """ printing the inverse parameters.
+        """
+        printing the inverse parameters.
         """
         if self.info_string_every is not None and self.model.t % self.info_string_every == 0:
             param = list(self.parameters.keys())

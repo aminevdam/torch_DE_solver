@@ -25,12 +25,9 @@ class OptimizerStep:
     def model(self):
         return self._model
 
-    def _amp_mixed(self, mixed_precision: bool):
+    def _amp_mixed(self):
         """
         Preparation for mixed precision operations.
-
-        Args:
-            mixed_precision (bool): use or not torch.amp.
 
         Raises:
             NotImplementedError: AMP and the LBFGS optimizer are not compatible.
@@ -41,11 +38,11 @@ class OptimizerStep:
             dtype (dtype): operations dtype.
         """
 
-        self.scaler = torch.cuda.amp.GradScaler(enabled=mixed_precision)
+        self.scaler = torch.cuda.amp.GradScaler(enabled=self.mixed_precision)
         print(f'Mixed precision enabled. The device is {self.model.device}')
         if self.optimizer.__class__.__name__ == "LBFGS":
             raise NotImplementedError("AMP and the LBFGS optimizer are not compatible.")
-        self.cuda_flag = True if self.model.device == 'cuda' and mixed_precision else False
+        self.cuda_flag = True if self.model.device == 'cuda' and self.mixed_precision else False
         self.dtype = torch.float16 if self.model.device == 'cuda' else torch.bfloat16
 
     def _closure_cpu(self):
@@ -96,5 +93,6 @@ class OptimizerStep:
             closure function.
         """
         if self.mixed_precision:
+            self._amp_mixed()
             return self._closure_cuda if self.model.device == 'cuda' else self._closure_cpu
         return self._closure_default

@@ -1,25 +1,28 @@
-"""Module of derivative calculations.
 """
-
+Module of derivative calculations.
+"""
+from abc import ABC
 from typing import Any, Union, List, Tuple
+
 import numpy as np
 from scipy import linalg
 import torch
-from tedeous.device import check_device
 
-class DerivativeInt():
-    """Interface class
+
+class DerivativeBase(ABC):
     """
-    def take_derivative(self, value):
+    Base class for derivative calculations.
+    """
+
+    def take_derivative(self, term, grid_point):
         """Method that should be built in every child class"""
         raise NotImplementedError
 
 
-class Derivative_NN(DerivativeInt):
+class DerivativeNN(DerivativeBase):
     """
     Taking numerical derivative for 'NN' method.
     """
-
     def __init__(self, model: Any):
         """
         Args:
@@ -47,15 +50,15 @@ class Derivative_NN(DerivativeInt):
         for j, scheme in enumerate(term[dif_dir][0]):
             grid_sum = 0.
             for k, grid in enumerate(scheme):
-                grid_sum += self.model(grid)[:, term['var'][j]].reshape(-1, 1)\
-                    * term[dif_dir][1][j][k]
+                grid_sum += self.model(grid)[:, term['var'][j]].reshape(-1, 1) \
+                            * term[dif_dir][1][j][k]
             der_term = der_term * grid_sum ** term['pow'][j]
         der_term = coeff * der_term
 
         return der_term
 
 
-class Derivative_autograd(DerivativeInt):
+class DerivativeAutograd(DerivativeBase):
     """
     Taking numerical derivative for 'autograd' method.
     """
@@ -72,7 +75,8 @@ class Derivative_autograd(DerivativeInt):
                      points: torch.Tensor,
                      var: int,
                      axis: List[int] = [0]):
-        """ Computes derivative on the grid using autograd method.
+        """
+        Computes derivative on the grid using autograd method.
 
         Args:
             model (torch.nn.Module): torch neural network.
@@ -85,9 +89,7 @@ class Derivative_autograd(DerivativeInt):
             gradient_full (torch.Tensor): the result of desired function differentiation
                 in corresponding axis.
         """
-
         points.requires_grad = True
-        # print(points)
         fi = model(points)[:, var].sum(0)
         for ax in axis:
             grads, = torch.autograd.grad(fi, points, create_graph=True)
@@ -95,8 +97,9 @@ class Derivative_autograd(DerivativeInt):
         gradient_full = grads[:, axis[-1]].reshape(-1, 1)
         return gradient_full
 
-    def take_derivative(self, term: dict, grid_points:  torch.Tensor) -> torch.Tensor:
-        """ Auxiliary function serves for single differential operator resulting field
+    def take_derivative(self, term: dict, grid_points: torch.Tensor) -> torch.Tensor:
+        """
+        Auxiliary function serves for single differential operator resulting field
         derivation.
 
         Args:
@@ -127,10 +130,11 @@ class Derivative_autograd(DerivativeInt):
         return der_term
 
 
-class Derivative_mat(DerivativeInt):
+class DerivativeMat(DerivativeBase):
     """
     Taking numerical derivative for 'mat' method.
     """
+
     def __init__(self, model: torch.Tensor, derivative_points: int):
         """
         Args:
@@ -138,10 +142,10 @@ class Derivative_mat(DerivativeInt):
             derivative_points (int): points number for derivative calculation.
         """
         self.model = model
-        self.backward, self.farward = Derivative_mat._labels(derivative_points)
+        self.backward, self.farward = DerivativeMat._labels(derivative_points)
 
-        self.alpha_backward = Derivative_mat._linear_system(self.backward)
-        self.alpha_farward = Derivative_mat._linear_system(self.farward)
+        self.alpha_backward = DerivativeMat._linear_system(self.backward)
+        self.alpha_farward = DerivativeMat._linear_system(self.farward)
 
         num_points = int(len(self.backward) - 1)
 
@@ -167,21 +171,22 @@ class Derivative_mat(DerivativeInt):
 
     @staticmethod
     def _linear_system(labels: list) -> np.ndarray:
-        """ To caclulate coeeficints in numerical scheme,
-            we have to solve the linear system of algebraic equations.
-            A*alpha=b
+        """
+        To calculate coefficients in numerical scheme,
+        we have to solve the linear system of algebraic equations.
+        A*alpha=b
 
         Args:
-            labels (list): points labels for backward/foraward scheme.
+            labels (list): points labels for backward/forward scheme.
 
         Returns:
-            alpha (np.ndarray): coefficints for numerical scheme.
+            alpha (np.ndarray): coefficients for numerical scheme.
         """
-        points_num = len(labels) # num_points=number of equations
+        points_num = len(labels)  # num_points=number of equations
         labels = np.array(labels)
         A = []
         for i in range(points_num):
-            A.append(labels**i)
+            A.append(labels ** i)
         A = np.array(A)
 
         b = np.zeros_like(labels)
@@ -192,7 +197,8 @@ class Derivative_mat(DerivativeInt):
         return alpha
 
     def _derivative_1d(self, u_tensor: torch.Tensor, h: torch.Tensor) -> torch.Tensor:
-        """ Computes derivative in one dimension for matrix method.
+        """
+        Computes derivative in one dimension for matrix method.
 
         Args:
             u_tensor (torch.Tensor): dependenet varible of equation,
@@ -217,11 +223,9 @@ class Derivative_mat(DerivativeInt):
         du[self.back] = du_back[self.back] / h
         du[self.farw] = du_farw[self.farw] / h
 
-
         du = du.reshape(shape)
 
         return du
-
 
     def _step_h(self, h_tensor: torch.Tensor) -> list[torch.Tensor]:
         """ Calculate increment along each axis of the grid.
@@ -239,8 +243,8 @@ class Derivative_mat(DerivativeInt):
                                 range(h_tensor.shape[0])]).T.float()
 
         for i in range(nn_grid.shape[-1]):
-            axis_points = torch.unique(nn_grid[:,i])
-            h.append(abs(axis_points[1]-axis_points[0]))
+            axis_points = torch.unique(nn_grid[:, i])
+            h.append(abs(axis_points[1] - axis_points[0]))
         return h
 
     def _derivative(self,
@@ -259,7 +263,7 @@ class Derivative_mat(DerivativeInt):
             du (torch.Tensor): computed derivative.
         """
 
-        if len(u_tensor.shape)==1 or u_tensor.shape[0]==1:
+        if len(u_tensor.shape) == 1 or u_tensor.shape[0] == 1:
             du = self._derivative_1d(u_tensor, h)
             return du
 
@@ -277,11 +281,11 @@ class Derivative_mat(DerivativeInt):
         du = (du_back + du_farw) / (2 * h)
 
         if pos == 1:
-            du[:,self.back] = du_back[:,self.back] / h
+            du[:, self.back] = du_back[:, self.back] / h
             du[:, self.farw] = du_farw[:, self.farw] / h
         elif pos == 2:
-            du[:,:, self.back] = du_back[:,:, self.back] / h
-            du[:,:, self.farw] = du_farw[:,:, self.farw] / h
+            du[:, :, self.back] = du_back[:, :, self.back] / h
+            du[:, :, self.farw] = du_farw[:, :, self.farw] / h
 
         du = torch.transpose(du, pos, axis)
 
@@ -302,8 +306,8 @@ class Derivative_mat(DerivativeInt):
         dif_dir = list(term.keys())[1]
         der_term = torch.zeros_like(self.model) + 1
         for j, scheme in enumerate(term[dif_dir]):
-            prod=self.model[term['var'][j]]
-            if scheme!=[None]:
+            prod = self.model[term['var'][j]]
+            if scheme != [None]:
                 for axis in scheme:
                     if axis is None:
                         continue
@@ -317,16 +321,15 @@ class Derivative_mat(DerivativeInt):
         return der_term
 
 
-class Derivative():
+class Derivative:
     """
-   Interface for taking numerical derivative due to chosen calculation mode.
+    Interface for taking numerical derivative due to chosen calculation mode.
+    """
 
-   """
-    def __init__(self, 
+    def __init__(self,
                  model: Union[torch.nn.Module, torch.Tensor],
                  derivative_points: int):
-        """_summary_
-
+        """
         Args:
             model (Union[torch.nn.Module, torch.Tensor]): neural network or
                                         matrix depending on the selected mode.
@@ -339,7 +342,7 @@ class Derivative():
         self.derivative_points = derivative_points
 
     def set_strategy(self,
-                     strategy: str) -> Union[Derivative_NN, Derivative_autograd, Derivative_mat]:
+                     strategy: str) -> Union[DerivativeNN, DerivativeAutograd, DerivativeMat]:
         """
         Setting the calculation method.
         Args:
@@ -348,10 +351,10 @@ class Derivative():
             equation in input form for a given calculation method.
         """
         if strategy == 'NN':
-            return Derivative_NN(self.model)
+            return DerivativeNN(self.model)
 
         elif strategy == 'autograd':
-            return  Derivative_autograd(self.model)
+            return DerivativeAutograd(self.model)
 
         elif strategy == 'mat':
-            return Derivative_mat(self.model, self.derivative_points)
+            return DerivativeMat(self.model, self.derivative_points)

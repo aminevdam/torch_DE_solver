@@ -3,28 +3,29 @@ import sys
 import os
 
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'TRUE'
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname( __file__ ), '..')))
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from tedeous.data import Domain, Conditions, Equation
 from tedeous.model import Model
 from tedeous.callbacks import Cache, EarlyStopping, Plots
 from tedeous.optimizers.optimizer import Optimizer
 from tedeous.models import FourierNN
+from tedeous.device import solver_device
 
+solver_device('cuda')
 
 x0 = 30.
 y0 = 4.
 
-
 domain = Domain()
 domain.variable('t', [0, 20], 1001)
 
-#initial conditions
+# initial conditions
 boundaries = Conditions()
 boundaries.dirichlet({'t': 0}, value=x0, var=0)
 boundaries.dirichlet({'t': 0}, value=y0, var=1)
 
-#equation system
+# equation system
 # eq1: dx/dt = x(alpha-beta*y)
 # eq2: dy/dt = y(-delta+gamma*x)
 
@@ -34,19 +35,19 @@ boundaries.dirichlet({'t': 0}, value=y0, var=1)
 equation = Equation()
 
 eq1 = {
-    '1/x*dx/dt':{
+    '1/x*dx/dt': {
         'coeff': 1,
         'term': [[None], [0]],
         'pow': [-1, 1],
         'var': [0, 0]
     },
-    '-alpha':{
+    '-alpha': {
         'coeff': -0.55,
         'term': [None],
         'pow': 0,
         'var': [0]
     },
-    '+beta*y':{
+    '+beta*y': {
         'coeff': 0.028,
         'term': [None],
         'pow': 1,
@@ -55,19 +56,19 @@ eq1 = {
 }
 
 eq2 = {
-    '1/y*dy/dt':{
+    '1/y*dy/dt': {
         'coeff': 1,
         'term': [[None], [0]],
         'pow': [-1, 1],
         'var': [1, 1]
     },
-    '+delta':{
+    '+delta': {
         'coeff': 0.84,
         'term': [None],
         'pow': 0,
         'var': [1]
     },
-    '-gamma*x':{
+    '-gamma*x': {
         'coeff': -0.026,
         'term': [None],
         'pow': 1,
@@ -80,27 +81,27 @@ equation.add(eq2)
 
 net = FourierNN([512, 512, 512, 512, 2], [15], [7])
 
-model =  Model(net, domain, equation, boundaries)
+model = Model(net, domain, equation, boundaries)
 
 model.compile("NN", lambda_operator=1, lambda_bound=10, tol=0.01)
 
-img_dir=os.path.join(os.path.dirname( __file__ ), 'LV_hunter_prey')
+img_dir = os.path.join(os.path.dirname(__file__), 'LV_hunter_prey')
 
 start = time.time()
 
-cb_cache = Cache(verbose=True, model_randomize_parameter=1e-5)
+cb_cache = Cache(model_randomize_parameter=1e-5)
 
 cb_es = EarlyStopping(eps=1e-6,
-                                    loss_window=100,
-                                    no_improvement_patience=100,
-                                    patience=5,
-                                    randomize_parameter=1e-5,
-                                    info_string_every=500)
+                      loss_window=100,
+                      no_improvement_patience=100,
+                      patience=5,
+                      randomize_parameter=1e-5,
+                      info_string_every=500)
 
 cb_plots = Plots(save_every=500, print_every=None, img_dir=img_dir)
 
-optimizer = Optimizer(model=net, optimizer_type='Adam', learning_rate= 1e-3)
+optimizer = Optimizer(model=net, optimizer_type='Adam', learning_rate=1e-3)
 
-model.train(optimizer=optimizer, epochs=4e4, save_model=False, device='cuda', callbacks=[cb_cache, cb_es, cb_plots])
+model.train(optimizer=optimizer, epochs=4e4, verbose=1, save_model=False, callbacks=[cb_cache, cb_es, cb_plots])
 
 end = time.time()

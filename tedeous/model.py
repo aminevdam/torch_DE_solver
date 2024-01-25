@@ -95,7 +95,7 @@ class Model:
         """
         model_randomize_parameter = params.get('model_randomize_parameter', 0.01)
 
-        self.h = params.get('h', None)
+        self.h = params.get('h', 0.001)
         self._r = create_random_fn(model_randomize_parameter)
         self.save_graph = params.get('save_graph', False)
         self.lambda_operator = params.get('lambda_operator', 1)
@@ -103,20 +103,8 @@ class Model:
         self.normalized_loss_stop = params.get('normalized_loss_stop', False)
         self.inner_order = params.get('inner_order', '1')
         self.boundary_order = params.get('boundary_order', '2')
-        self.derivative_points = params.get('derivative_points', None)
+        self.derivative_points = params.get('derivative_points', 2)
         self.dtype = torch.float32
-
-    def _set_solver_device(self, device: str):
-        """
-        Method that sets device to 'cpu' or 'cuda'.
-        Args:
-            device: device.
-        """
-
-        solver_device(device)
-        self.grid = check_device(self.grid)
-        self.net = self.net.to(device_type())
-        self.device = device
 
     def compile(
             self,
@@ -128,12 +116,13 @@ class Model:
         Args:
             mode: Calculation method. (e.g., "NN", "autograd", "mat").
         """
-        print('Compiling model...')
+        self.mode = mode
+        self.device = device_type()
         self._loss_parameters(**params)
         self._misc_parameters(**params)
-        self.mode = mode
 
         self.grid = self.domain.build(mode=mode)
+
         variable_dict = self.domain.variable_dict
         operator = self.equation.equation_lst
         bconds = self.conditions.build(variable_dict)
@@ -155,7 +144,7 @@ class Model:
 
         self.solution_cls = Solution(self.grid, equation_cls, self.net, mode, self.weak_form,
                                      self.lambda_operator, self.lambda_bound, self.tol, self.derivative_points)
-        print('Model compiled.')
+
 
     def _model_save(
             self,
@@ -181,7 +170,6 @@ class Model:
               callbacks: List[Callback],
               epochs: Union[int, float] = 10000,
               verbose: int = 0,
-              device: str = 'cpu',
               save_model: bool = False,
               model_name: Union[str, None] = None,
               print_every: Union[int, None] = None,
@@ -195,7 +183,6 @@ class Model:
             callbacks: list of callbacks used for training.
             epochs: number of epochs to train.
             verbose: verbosity level.
-            device: device to use.
             save_model: whether to save model.
             model_name: model name.
             mixed_precision: mixed precision (fp16/fp32).
@@ -203,8 +190,7 @@ class Model:
         Returns:
             the trained model.
         """
-        self.optimizer = optimizer.set_optimizer()
-        self._set_solver_device(device)
+        self.optimizer = optimizer.set_optimizer(self.mode)
 
         opt_step = OptimizerStep(mixed_precision, self)
         closure = opt_step.step()
@@ -225,16 +211,16 @@ class Model:
 
         while self.t < epochs:
             callbacks.on_epoch_begin()
-
             self.cur_loss = self.optimizer.step(closure)
 
             callbacks.on_epoch_end()
 
-            if print_every is not None:
+            if print_every is not None and verbose >= 1:
                 if self.t % print_every == 0:
                     loss = self.cur_loss.item() if isinstance(self.cur_loss, torch.Tensor) else self.cur_loss
                     info = 'Step = {} loss = {:.6f}.'.format(self.t, loss)
                     print(info)
+
             if self.stop_training:
                 break
 
