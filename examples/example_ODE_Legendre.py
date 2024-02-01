@@ -185,13 +185,16 @@ for n in range(3, 11):
 
         optimizer = Optimizer(model=net, optimizer_type='Adam', learning_rate=1e-3)
 
-        model.train(optimizer=optimizer, epochs=1e5, save_model=False, verbose=1, callbacks=[cb_cache, cb_es, cb_plots])
+        model.train(optimizer=optimizer, epochs=2e5, save_model=True, verbose=1, callbacks=[cb_cache, cb_es, cb_plots])
 
         end = time.time()
 
         print('Time taken {} = {}'.format(n, end - start))
 
-        error_rmse = torch.sqrt(torch.mean((legendre(n)(grid) - net(grid)) ** 2))
+        net = net.cpu()
+        grid = grid.cpu()
+
+        error_rmse=torch.sqrt(torch.mean((legendre(n)(grid.detach())-net(grid).detach())**2))
 
         print('RMSE {}= {}'.format(n, error_rmse))
 

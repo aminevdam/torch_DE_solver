@@ -124,7 +124,7 @@ def experiment(grid_res, mode):
 
     optimizer = Optimizer(model=net, optimizer_type='Adam', learning_rate=1e-3)
 
-    model.train(optimizer=optimizer, epochs=1000, save_model=False, callbacks=[cb_es, cb_plots])
+    model.train(optimizer=optimizer, epochs=10000, save_model=False, callbacks=[cb_es, cb_plots])
 
     grid = domain.build(mode)
 

@@ -198,6 +198,8 @@ class Model:
         callbacks = CallbackList(callbacks=callbacks, verbose=verbose, model=self)
         callbacks.on_train_begin()
 
+        self.net = self.solution_cls.model
+
         self.t = 0
         self.stop_training = False
 

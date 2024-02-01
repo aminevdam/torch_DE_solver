@@ -24,8 +24,9 @@ boundaries = Conditions()
 
 # u(x,0)=1e4*sin^2(x(x-1)/10)
 x = domain.variable_dict['x']
-func_bnd = lambda x: 10 ** 4 * torch.sin((1/10) * x * (x-1)) ** 2
-boundaries.dirichlet({'x': [0, 1], 't': 0}, value=func_bnd(x))
+func_bnd1 = lambda x: 10 ** 4 * torch.sin((1/10) * x * (x-1)) ** 2
+boundaries.dirichlet({'x': [0, 1], 't': 0}, value=func_bnd1(x))
+
 
 # du/dx (x,0) = 1e3*sin^2(x(x-1)/10)
 bop2 = {
@@ -37,7 +38,8 @@ bop2 = {
                 'var': 0
             }
 }
-boundaries.operator({'x': [0, 1], 't': 0}, operator=bop2, value=func_bnd(x))
+func_bnd2 = lambda x: 10 ** 3 * torch.sin((1/10) * x * (x-1)) ** 2
+boundaries.operator({'x': [0, 1], 't': 0}, operator=bop2, value=func_bnd2(x))
 
 # u(0,t) = u(1,t)
 boundaries.periodic([{'x': 0, 't': [0, 1]}, {'x': 1, 't': [0, 1]}])
@@ -86,17 +88,19 @@ net = torch.nn.Sequential(
 
 start = time.time()
 
-model =  Model(net, domain, equation, boundaries)
+model = Model(net, domain, equation, boundaries)
 
-model.compile("autograd", lambda_operator=1, lambda_bound=1000)
+model.compile("NN", lambda_operator=1, lambda_bound=1000, h=0.01)
 
-cb_es = EarlyStopping(eps=1e-6, info_string_every=100)
+cb_es = EarlyStopping(eps=1e-6,
+                      no_improvement_patience=500,
+                      info_string_every=100)
 
 img_dir = os.path.join(os.path.dirname( __file__ ), 'wave_periodic_img')
 
-cb_plots = Plots(save_every=100, print_every=None, img_dir=img_dir)
+cb_plots = Plots(save_every=500, print_every=None, img_dir=img_dir)
 
-optimizer = Optimizer(model=net, optimizer_type='Adam', learning_rate=1e-3)
+optimizer = Optimizer(model=net, optimizer_type='Adam', learning_rate=1e-2)
 
 model.train(optimizer=optimizer, epochs=5e6, save_model=False,  callbacks=[cb_es, cb_plots])
 
