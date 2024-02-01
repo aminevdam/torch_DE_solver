@@ -6,31 +6,31 @@ from copy import deepcopy
 from typing import Tuple, Union, Any
 import torch
 
+from tedeous.derivative import Derivative
 from tedeous.points_type import Points_type
 from tedeous.eval import Operator, Bounds
 from tedeous.losses import Losses
 from tedeous.device import device_type, check_device
 from tedeous.input_preprocessing import lambda_prepare, Equation_NN, Equation_mat, Equation_autograd
 
-flatten_list = lambda t: [item for sublist in t for item in sublist]
 
+flatten_list = lambda t: [item for sublist in t for item in sublist]
 
 class Solution():
     """
     class for different loss functions calculation.
     """
-
     def __init__(
-            self,
-            grid: torch.Tensor,
-            equal_cls: Union[Equation_NN, Equation_mat, Equation_autograd],
-            model: Union[torch.nn.Sequential, torch.Tensor],
-            mode: str,
-            weak_form: Union[None, list[callable]],
-            lambda_operator,
-            lambda_bound,
-            tol: float = 0,
-            derivative_points: int = 2):
+        self,
+        grid: torch.Tensor,
+        equal_cls: Union[Equation_NN, Equation_mat, Equation_autograd],
+        model: Union[torch.nn.Sequential, torch.Tensor],
+        mode: str,
+        weak_form: Union[None, list[callable]],
+        lambda_operator,
+        lambda_bound,
+        tol: float = 0,
+        derivative_points: int = 2):
         """
         Args:
             grid (torch.Tensor): discretization of comp-l domain.
@@ -56,18 +56,19 @@ class Solution():
         equal_copy = deepcopy(equal_cls)
         prepared_operator = equal_copy.operator_prepare()
         self._operator_coeff(equal_cls, prepared_operator)
-        prepared_bconds = equal_copy.bnd_prepare()
-        self.model = model
+        self.prepared_bconds = equal_copy.bnd_prepare()
+        self.model = model.to(device_type())
         self.mode = mode
         self.weak_form = weak_form
         self.lambda_operator = lambda_operator
         self.lambda_bound = lambda_bound
         self.tol = tol
+        self.derivative_points = derivative_points
 
         self.operator = Operator(self.grid, prepared_operator, self.model,
-                                 self.mode, weak_form, derivative_points)
-        self.boundary = Bounds(self.grid, prepared_bconds, self.model,
-                               self.mode, weak_form, derivative_points)
+                                   self.mode, weak_form, derivative_points)
+        self.boundary = Bounds(self.grid,self.prepared_bconds, self.model,
+                                   self.mode, weak_form, derivative_points)
 
         self.loss_cls = Losses(self.mode, self.weak_form, self.n_t, self.tol)
         self.op_list = []
@@ -91,6 +92,25 @@ class Solution():
                     except:
                         eq[key]['coeff'] = equal_cls.operator[key]['coeff'].to(device_type())
 
+    def _model_change(self, new_model: torch.nn.Module) -> None:
+        """Change self.model for class and *operator, boundary* object.
+            It should be used in cache_lookup and cache_retrain method.
+
+        Args:
+            new_model (torch.nn.Module): new self model.
+        """
+        self.model = new_model
+        self.operator.model = new_model
+        self.operator.derivative = Derivative(new_model, self.derivative_points).set_strategy(
+            self.mode).take_derivative
+        self.boundary.model = new_model
+        self.boundary.operator = Operator(self.grid,
+                                          self.prepared_bconds,
+                                          new_model,
+                                          self.mode,
+                                          self.weak_form,
+                                          self.derivative_points)
+
     def evaluate(self,
                  save_graph: bool = True) -> Tuple[torch.Tensor, torch.Tensor]:
         """ Computes loss.
@@ -107,8 +127,9 @@ class Solution():
         Returns:
             Tuple[torch.Tensor, torch.Tensor]: loss
         """
+
         self.op = self.operator.operator_compute()
-        self.bval, self.true_bval, \
+        self.bval, self.true_bval,\
             self.bval_keys, self.bval_length = self.boundary.apply_bcs()
         dtype = self.op.dtype
         self.lambda_operator = lambda_prepare(self.op, self.lambda_operator).to(dtype)
