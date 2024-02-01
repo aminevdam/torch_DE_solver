@@ -145,7 +145,7 @@ for _ in range(1):
     
     # model = point_sort_shift_solver(grid, model, wave_eq , bconds, 
     #                                           lambda_bound=100, verbose=True, learning_rate=1e-4,
-    #                                 eps=1e-5, tmin=1000, tmax=1e5,use_cache=False,cache_dir='../cache/',cache_verbose=True,
+    #                                 eps=1e-5, tmin=1000, tmax=1e5,use_cache=False,cache_dir='../cache/',verbose=True,
     #                                 batch_size=None, save_always=True,lp_par=lp_par)
     model=optimization_solver(coord_list, model, wave_eq,bconds,config,mode='mat')
     end = time.time()

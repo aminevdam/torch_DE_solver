@@ -295,7 +295,7 @@ for grid_res in [10]:
         start = time.time()
         model=optimization_solver(coord_list, model, kdv, bconds, config,mode='mat')
         # model = point_sort_shift_solver(grid, model, kdv, bconds, lambda_bound=1000,verbose=True, learning_rate=1e-4,
-        #                                 eps=1e-6, tmin=1000, tmax=1e5, h=0.01,use_cache=True,cache_verbose=True,
+        #                                 eps=1e-6, tmin=1000, tmax=1e5, h=0.01,use_cache=True,verbose=True,
         #                             batch_size=64, save_always=True)
         
         end = time.time()

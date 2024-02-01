@@ -16,9 +16,10 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname( __file__ ), '..'))
 
 from tedeous.data import Domain, Conditions, Equation
 from tedeous.model import Model
-from tedeous.callbacks import cache, early_stopping, plot
+from tedeous.callbacks import Cache, EarlyStopping, Plots
 from tedeous.optimizers.optimizer import Optimizer
-from tedeous.device import solver_device, check_device
+from tedeous.device import check_device
+from tedeous.device import solver_device
 
 solver_device('cpu')
 
@@ -158,20 +159,20 @@ def p_I_exp(grid_res, nruns, CACHE):
 
         start = time.time()
         
-        cb_cache = cache.Cache(cache_verbose=False, model_randomize_parameter=1e-6)
+        cb_cache = Cache(model_randomize_parameter=1e-6)
 
-        cb_es = early_stopping.EarlyStopping(eps=1e-7,
+        cb_es = EarlyStopping(eps=1e-7,
                                             loss_window=100,
                                             no_improvement_patience=1000,
                                             patience=5,
                                             randomize_parameter=1e-6,
                                             info_string_every=1000)
 
-        cb_plots = plot.Plots(save_every=1000, print_every=None, img_dir=img_dir)
+        cb_plots = Plots(save_every=1000, print_every=None, img_dir=img_dir)
 
-        optimizer = Optimizer('Adam', {'lr': 1e-4})
+        optimizer = Optimizer(model=net, optimizer_type='Adam', learning_rate= 1e-4)
 
-        model.train(optimizer, 1e5, save_model=False, callbacks=[cb_cache, cb_es, cb_plots])
+        model.train(optimizer=optimizer, epochs=1e5, save_model=False, callbacks=[cb_cache, cb_es, cb_plots])
 
         end = time.time()
 

@@ -7,14 +7,14 @@ from matplotlib import cm
 import sys
 
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'TRUE'
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname( __file__ ), '..')))
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from tedeous.data import Domain, Conditions, Equation
 from tedeous.model import Model
-from tedeous.callbacks import early_stopping, plot
+from tedeous.callbacks import EarlyStopping, Plots
 from tedeous.optimizers.optimizer import Optimizer
 from tedeous.device import solver_device, device_type, check_device
-
+from tedeous.device import solver_device
 
 solver_device('cuda')
 
@@ -35,6 +35,7 @@ domain = Domain()
 domain.variable('x', [0, 1], 20)
 domain.variable('t', [0, 0.2], 20)
 
+
 ## BOUNDARY AND INITIAL CONDITIONS
 # p:0, v:1, Ro:2
 
@@ -44,6 +45,7 @@ def u0(x, x0):
     else:
         return [p_l, v_l, Ro_l]
 
+
 boundaries = Conditions()
 
 # Initial conditions at t=0
@@ -52,12 +54,12 @@ x = domain.variable_dict['x']
 u_init0 = np.zeros(x.shape[0])
 u_init1 = np.zeros(x.shape[0])
 u_init2 = np.zeros(x.shape[0])
-j=0
+j = 0
 for i in x:
-  u_init0[j] = u0(i, x0)[0]
-  u_init1[j] = u0(i, x0)[1]
-  u_init2[j] = u0(i, x0)[2]
-  j +=1
+    u_init0[j] = u0(i, x0)[0]
+    u_init1[j] = u0(i, x0)[1]
+    u_init2[j] = u0(i, x0)[2]
+    j += 1
 
 bndval1_0 = torch.from_numpy(u_init0)
 bndval1_1 = torch.from_numpy(u_init1)
@@ -85,68 +87,68 @@ Eiler's equations system for Sod test in shock tube
 
 equation = Equation()
 
-gas_eq1={
-        'dro/dt':
+gas_eq1 = {
+    'dro/dt':
         {
             'coeff': 1,
             'term': [1],
             'pow': 1,
             'var': 2
         },
-        'v*dro/dx':
+    'v*dro/dx':
         {
             'coeff': 1,
             'term': [[None], [0]],
             'pow': [1, 1],
             'var': [1, 2]
         },
-        'ro*dv/dx':
+    'ro*dv/dx':
         {
             'coeff': 1,
             'term': [[None], [0]],
             'pow': [1, 1],
             'var': [2, 1]
         }
-     }
+}
 gas_eq2 = {
-        'ro*dv/dt':
+    'ro*dv/dt':
         {
             'coeff': 1,
             'term': [[None], [1]],
             'pow': [1, 1],
             'var': [2, 1]
         },
-        'ro*v*dv/dx':
+    'ro*v*dv/dx':
         {
             'coeff': 1,
-            'term': [[None],[None], [0]],
+            'term': [[None], [None], [0]],
             'pow': [1, 1, 1],
             'var': [2, 1, 1]
         },
-        'dp/dx':
+    'dp/dx':
         {
             'coeff': 1,
             'term': [0],
             'pow': 1,
             'var': 0
         }
-     }
-gas_eq3 =  {
-        'dp/dt':
+}
+gas_eq3 = {
+    'dp/dt':
         {
             'coeff': 1,
             'term': [1],
             'pow': 1,
             'var': 0
         },
-        'gam*p*dv/dx':
+    'gam*p*dv/dx':
         {
             'coeff': gam_l,
             'term': [[None], [0]],
             'pow': [1, 1],
             'var': [0, 1]
         },
-        'v*dp/dx':
+    'v*dp/dx':
         {
             'coeff': 1,
             'term': [[None], [0]],
@@ -154,7 +156,7 @@ gas_eq3 =  {
             'var': [1, 0]
         }
 
-     }
+}
 
 equation.add(gas_eq1)
 equation.add(gas_eq2)
@@ -171,25 +173,25 @@ net = torch.nn.Sequential(
 )
 start = time.time()
 
-model =  Model(net, domain, equation, boundaries)
+model = Model(net, domain, equation, boundaries)
 
 model.compile("autograd", lambda_operator=1, lambda_bound=100)
 
-img_dir=os.path.join(os.path.dirname( __file__ ), 'SOD_autograd_img')
+img_dir = os.path.join(os.path.dirname(__file__), 'SOD_autograd_img')
 
-cb_es = early_stopping.EarlyStopping(eps=1e-6,
-                                    loss_window=100,
-                                    no_improvement_patience=500,
-                                    patience=5,
-                                    randomize_parameter=1e-6,
-                                    info_string_every=1000,
-                                    abs_loss=0.0001)
+cb_es = EarlyStopping(eps=1e-6,
+                      loss_window=100,
+                      no_improvement_patience=500,
+                      patience=5,
+                      randomize_parameter=1e-6,
+                      info_string_every=1000,
+                      abs_loss=0.0001)
 
-cb_plots = plot.Plots(save_every=1000, print_every=None, img_dir=img_dir)
+cb_plots = Plots(save_every=1000, print_every=None, img_dir=img_dir)
 
-optimizer = Optimizer('Adam', {'lr': 1e-3})
+optimizer = Optimizer(model=net, optimizer_type='Adam', learning_rate=1e-3)
 
-model.train(optimizer, 1e5, save_model=True, callbacks=[cb_es, cb_plots])
+model.train(optimizer=optimizer, epochs=1e5, verbose= 1, save_model=True, callbacks=[cb_es, cb_plots])
 
 end = time.time()
 print('Time taken = {}'.format(end - start))
@@ -199,6 +201,7 @@ device = device_type()
 net = net.to(device)
 grid = domain.build('autograd')
 grid = grid.to(device)
+
 
 def exact(point):
     N = 100
@@ -293,18 +296,21 @@ def exact_solution_print(grid, u_exact):
     ax2 = fig2.add_subplot(projection='3d')
     fig3 = plt.figure()
     ax3 = fig3.add_subplot(projection='3d')
-    grid_plot=grid.detach().numpy()
+    grid_plot = grid.detach().numpy()
     ax1.plot_trisurf(grid_plot[:, 0].reshape(-1), grid_plot[:, 1].reshape(-1), u_exact[:, 0].reshape(-1), cmap='Blues',
                      linewidth=0.2, alpha=1)
-    ax1.plot_trisurf(grid_plot[:, 0].reshape(-1), grid_plot[:, 1].reshape(-1), net(grid)[:, 0].detach().numpy().reshape(-1),
+    ax1.plot_trisurf(grid_plot[:, 0].reshape(-1), grid_plot[:, 1].reshape(-1),
+                     net(grid)[:, 0].detach().numpy().reshape(-1),
                      cmap=cm.jet, linewidth=0.2, alpha=1)
     ax2.plot_trisurf(grid_plot[:, 0].reshape(-1), grid_plot[:, 1].reshape(-1), u_exact[:, 1].reshape(-1), cmap='Blues',
                      linewidth=0.2, alpha=1)
-    ax2.plot_trisurf(grid_plot[:, 0].reshape(-1), grid_plot[:, 1].reshape(-1), net(grid)[:, 1].detach().numpy().reshape(-1),
+    ax2.plot_trisurf(grid_plot[:, 0].reshape(-1), grid_plot[:, 1].reshape(-1),
+                     net(grid)[:, 1].detach().numpy().reshape(-1),
                      cmap=cm.jet, linewidth=0.2, alpha=1)
     ax3.plot_trisurf(grid_plot[:, 0].reshape(-1), grid_plot[:, 1].reshape(-1), u_exact[:, 2].reshape(-1), cmap='Blues',
                      linewidth=0.2, alpha=1)
-    ax3.plot_trisurf(grid_plot[:, 0].reshape(-1), grid_plot[:, 1].reshape(-1), net(grid)[:, 2].detach().numpy().reshape(-1),
+    ax3.plot_trisurf(grid_plot[:, 0].reshape(-1), grid_plot[:, 1].reshape(-1),
+                     net(grid)[:, 2].detach().numpy().reshape(-1),
                      cmap=cm.jet, linewidth=0.2, alpha=1)
     ax1.set_xlabel("x")
     ax1.set_ylabel("t")

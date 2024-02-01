@@ -1,4 +1,4 @@
-"""module for working with inerface for initialize grid, conditions and equation"""
+"""module for working with interface for initialize grid, conditions and equation"""
 
 from typing import List, Union
 import torch

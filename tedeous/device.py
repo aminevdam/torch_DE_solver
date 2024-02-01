@@ -5,11 +5,12 @@ import torch
 
 
 def solver_device(device: str):
-    """ Corresponding to chosen device, all futher
-        created tensors will be with the same device
+    """
+    Corresponding to chosen device, all further
+    created tensors will be with the same device
 
     Args:
-        device (str): device mode, **cuda, gpu, cpu*.
+        device (str): device mode (**cuda, gpu, cpu**).
 
     """
     if device in ['cuda','gpu'] and torch.cuda.is_available():
@@ -23,9 +24,9 @@ def solver_device(device: str):
         return torch.set_default_device('cpu')
 
 def check_device(data: Any):
-    """ checking the device of the data.
-        If the data.device is not same with torch.set_default_device,
-        change one.
+    """
+    checking the device of the data.
+    If the data.device is not same with torch.set_default_device, change one.
     Args:
         data (Any): it could be model or torch.Tensors
 
@@ -39,6 +40,7 @@ def check_device(data: Any):
         return data
 
 def device_type():
-    """ Return the default device.
+    """
+    Return the default device.
     """
     return torch.tensor([0.]).device.type

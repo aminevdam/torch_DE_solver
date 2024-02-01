@@ -4,12 +4,10 @@ from tedeous.callbacks.callback import Callback
 
 class CallbackList(Callback):
     """Container abstracting a list of callbacks."""
-    def __init__(
-        self,
-        callbacks=None,
-        model=None,
-        **params,
-    ):
+    def __init__(self, callbacks=None,
+                 model=None,
+                 print_every=None,
+                 **params):
         """Container for `Callback` instances.
 
         This object wraps a list of `Callback` instances, making it possible
@@ -22,8 +20,9 @@ class CallbackList(Callback):
             **params: If provided, parameters will be passed to each `Callback`
                 via `Callback.set_params`.
         """
+        super().__init__()
         self.callbacks = callbacks if callbacks else []
-
+        self.print_every = print_every
         if model:
             self.set_model(model)
         if params:

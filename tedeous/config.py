@@ -28,7 +28,7 @@ DEFAULT_CONFIG = """
 "Cache":{
 "use_cache":true,
 "cache_dir":"../cache/",
-"cache_verbose":false,
+"verbose":false,
 "save_always":false,
 "model_randomize_parameter":0
 },

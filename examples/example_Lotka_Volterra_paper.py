@@ -17,14 +17,15 @@ import os
 import sys
 
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'TRUE'
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname( __file__ ), '..')))
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from tedeous.data import Domain, Conditions, Equation
 from tedeous.model import Model
-from tedeous.callbacks import cache, early_stopping, plot
+from tedeous.callbacks import Cache, EarlyStopping, Plots
 from tedeous.optimizers.optimizer import Optimizer
-from tedeous.device import solver_device, check_device, device_type
+from tedeous.device import solver_device
 
+solver_device('cpu')
 
 alpha = 20.
 beta = 20.
@@ -35,10 +36,9 @@ y0 = 2.
 t0 = 0.
 tmax = 1.
 
+
 def Lotka_experiment(grid_res, CACHE):
     exp_dict_list = []
-
-    solver_device('cpu')
 
     domain = Domain()
     domain.variable('t', [0, tmax], grid_res)
@@ -46,33 +46,33 @@ def Lotka_experiment(grid_res, CACHE):
     h = 0.0001
 
     boundaries = Conditions()
-    #initial conditions
+    # initial conditions
     boundaries.dirichlet({'t': 0}, value=x0, var=0)
     boundaries.dirichlet({'t': 0}, value=y0, var=1)
 
-    #equation system
+    # equation system
     # eq1: dx/dt = x(alpha-beta*y)
     # eq2: dy/dt = y(-delta+gamma*x)
 
     # x var: 0
     # y var:1
-    
+
     equation = Equation()
 
     eq1 = {
-        'dx/dt':{
+        'dx/dt': {
             'coeff': 1,
             'term': [0],
             'pow': 1,
             'var': [0]
         },
-        '-x*alpha':{
+        '-x*alpha': {
             'coeff': -alpha,
             'term': [None],
             'pow': 1,
             'var': [0]
         },
-        '+beta*x*y':{
+        '+beta*x*y': {
             'coeff': beta,
             'term': [[None], [None]],
             'pow': [1, 1],
@@ -81,19 +81,19 @@ def Lotka_experiment(grid_res, CACHE):
     }
 
     eq2 = {
-        'dy/dt':{
+        'dy/dt': {
             'coeff': 1,
             'term': [0],
             'pow': 1,
             'var': [1]
         },
-        '+y*delta':{
+        '+y*delta': {
             'coeff': delta,
             'term': [None],
             'pow': 1,
             'var': [1]
         },
-        '-gamma*x*y':{
+        '-gamma*x*y': {
             'coeff': -gamma,
             'term': [[None], [None]],
             'pow': [1, 1],
@@ -105,43 +105,43 @@ def Lotka_experiment(grid_res, CACHE):
     equation.add(eq2)
 
     net = torch.nn.Sequential(
-            torch.nn.Linear(1, 100),
-            torch.nn.Tanh(),
-            torch.nn.Linear(100, 100),
-            torch.nn.Tanh(),
-            torch.nn.Linear(100, 100),
-            torch.nn.Tanh(),
-            torch.nn.Linear(100, 2)
-        )
+        torch.nn.Linear(1, 100),
+        torch.nn.Tanh(),
+        torch.nn.Linear(100, 100),
+        torch.nn.Tanh(),
+        torch.nn.Linear(100, 100),
+        torch.nn.Tanh(),
+        torch.nn.Linear(100, 2)
+    )
 
-    model =  Model(net, domain, equation, boundaries)
+    model = Model(net, domain, equation, boundaries)
 
     model.compile("NN", lambda_operator=1, lambda_bound=100, h=h)
-    
-    img_dir=os.path.join(os.path.dirname( __file__ ), 'img_Lotka_Volterra_paper')
+
+    img_dir = os.path.join(os.path.dirname(__file__), 'img_Lotka_Volterra_paper')
 
     start = time.time()
 
-    cb_es = early_stopping.EarlyStopping(eps=1e-6,
-                                        loss_window=100,
-                                        no_improvement_patience=500,
-                                        patience=3,
-                                        randomize_parameter=1e-5)
-    
-    cb_plots = plot.Plots(save_every=1000, print_every=None, img_dir=img_dir)
+    cb_es = EarlyStopping(eps=1e-6,
+                          loss_window=100,
+                          no_improvement_patience=500,
+                          patience=3,
+                          randomize_parameter=1e-5)
 
-    optimizer = Optimizer('Adam', {'lr': 1e-4})
+    cb_plots = Plots(save_every=1000, print_every=None, img_dir=img_dir)
 
-    model.train(optimizer, 5e6, save_model=True, callbacks=[cb_es, cb_plots])
+    optimizer = Optimizer(model=net, optimizer_type='Adam', learning_rate=1e-4)
+
+    model.train(optimizer=optimizer, epochs=5e6, save_model=True,  callbacks=[cb_es, cb_plots])
 
     end = time.time()
-    
-    rmse_t_grid=np.linspace(0, 1, grid_res+1)
+
+    rmse_t_grid = np.linspace(0, 1, grid_res + 1)
 
     rmse_t = torch.from_numpy(rmse_t_grid)
 
     rmse_grid = rmse_t.reshape(-1, 1).float()
-    
+
     def exact():
         # scipy.integrate solution of Lotka_Volterra equations and comparison with NN results
 
@@ -151,21 +151,23 @@ def Lotka_experiment(grid_res, CACHE):
             doty = y * (-delta + gamma * x)
             return np.array([dotx, doty])
 
-        t = np.linspace(0., tmax, grid_res+1)
+        t = np.linspace(0., tmax, grid_res + 1)
 
         X0 = [x0, y0]
-        res = integrate.odeint(deriv, X0, t, args = (alpha, beta, delta, gamma))
+        res = integrate.odeint(deriv, X0, t, args=(alpha, beta, delta, gamma))
         x, y = res.T
-        return np.hstack((x.reshape(-1,1),y.reshape(-1,1)))
+        return np.hstack((x.reshape(-1, 1), y.reshape(-1, 1)))
 
     u_exact = exact()
 
     u_exact = torch.from_numpy(u_exact)
 
-    error_rmse = torch.sqrt(torch.mean((u_exact-net(rmse_grid))**2, 0).sum())
+    error_rmse = torch.sqrt(torch.mean((u_exact - net(rmse_grid)) ** 2, 0).sum())
 
-    exp_dict_list.append({'grid_res':grid_res,'time':end - start,'RMSE':error_rmse.detach().numpy(),'type':'Lotka_eqn','cache':CACHE})
-    
+    exp_dict_list.append(
+        {'grid_res': grid_res, 'time': end - start, 'RMSE': error_rmse.detach().numpy(), 'type': 'Lotka_eqn',
+         'cache': CACHE})
+
     print('Time taken {}= {}'.format(grid_res, end - start))
     print('RMSE {}= {}'.format(grid_res, error_rmse))
 
@@ -175,10 +177,10 @@ def Lotka_experiment(grid_res, CACHE):
     plt.figure()
     plt.grid()
     plt.title("odeint and NN methods comparing")
-    plt.plot(t, u_exact[:,0].detach().numpy().reshape(-1), '+', label = 'preys_odeint')
-    plt.plot(t, u_exact[:,1].detach().numpy().reshape(-1), '*', label = "predators_odeint")
-    plt.plot(grid, net(grid)[:,0].detach().numpy().reshape(-1), label='preys_NN')
-    plt.plot(grid, net(grid)[:,1].detach().numpy().reshape(-1), label='predators_NN')
+    plt.plot(t, u_exact[:, 0].detach().numpy().reshape(-1), '+', label='preys_odeint')
+    plt.plot(t, u_exact[:, 1].detach().numpy().reshape(-1), '*', label="predators_odeint")
+    plt.plot(grid, net(grid)[:, 0].detach().numpy().reshape(-1), label='preys_NN')
+    plt.plot(grid, net(grid)[:, 1].detach().numpy().reshape(-1), label='predators_NN')
     plt.xlabel('Time t, [days]')
     plt.ylabel('Population')
     plt.legend(loc='upper right')
@@ -186,22 +188,21 @@ def Lotka_experiment(grid_res, CACHE):
 
     return exp_dict_list
 
-nruns=10
 
-exp_dict_list=[]
+nruns = 10
 
-CACHE=False
+exp_dict_list = []
 
-for grid_res in range(60,101,10):
+CACHE = False
+
+for grid_res in range(60, 101, 10):
     for _ in range(nruns):
-        exp_dict_list.append(Lotka_experiment(grid_res,CACHE))
-   
+        exp_dict_list.append(Lotka_experiment(grid_res, CACHE))
 
-        
 import pandas as pd
 
 exp_dict_list_flatten = [item for sublist in exp_dict_list for item in sublist]
-df=pd.DataFrame(exp_dict_list_flatten)
-df.boxplot(by='grid_res',column='time',fontsize=42,figsize=(20,10))
-df.boxplot(by='grid_res',column='RMSE',fontsize=42,figsize=(20,10),showfliers=False)
+df = pd.DataFrame(exp_dict_list_flatten)
+df.boxplot(by='grid_res', column='time', fontsize=42, figsize=(20, 10))
+df.boxplot(by='grid_res', column='RMSE', fontsize=42, figsize=(20, 10), showfliers=False)
 df.to_csv('benchmarking_data/Lotka_experiment_50_90_cache={}.csv'.format(str(CACHE)))

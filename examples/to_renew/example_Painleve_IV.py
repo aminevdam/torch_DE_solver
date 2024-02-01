@@ -198,7 +198,7 @@ def p_IV_exp(grid_res,CACHE):
     start = time.time()
     
     model = point_sort_shift_solver(grid, model, p_4, bconds, lambda_bound=100, verbose=2,h=abs((t[1]-t[0]).item()), learning_rate=1e-4,
-                                    eps=1e-7, tmin=1000, tmax=1e6,use_cache=CACHE,cache_dir='../cache/',cache_verbose=True
+                                    eps=1e-7, tmin=1000, tmax=1e6,use_cache=CACHE,cache_dir='../cache/',verbose=True
                                     ,batch_size=None, save_always=True,lp_par=lp_par,no_improvement_patience=10000,print_every=None,
                                     model_randomize_parameter=1e-6)
     end = time.time()

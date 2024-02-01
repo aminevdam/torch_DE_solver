@@ -21,7 +21,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from tedeous.data import Domain, Conditions, Equation
 from tedeous.model import Model
-from tedeous.callbacks import early_stopping, plot, adaptive_lambda
+from tedeous.callbacks import EarlyStopping, Plots, AdaptiveLambda
 from tedeous.optimizers.optimizer import Optimizer
 from tedeous.device import solver_device
 
@@ -115,7 +115,7 @@ model =  Model(net, domain, equation, boundaries)
 
 model.compile("NN", lambda_operator=1, lambda_bound=100, h=h)
 
-cb_es = early_stopping.EarlyStopping(eps=1e-8,
+cb_es = EarlyStopping(eps=1e-8,
                                     loss_window=100,
                                     no_improvement_patience=1000,
                                     patience=12,
@@ -124,15 +124,15 @@ cb_es = early_stopping.EarlyStopping(eps=1e-8,
 
 img_dir = os.path.join(os.path.dirname(__file__), 'img_Lotka_Volterra')
 
-cb_plots = plot.Plots(save_every=2000, print_every=None, img_dir=img_dir)
+cb_plots = Plots(save_every=2000, print_every=None, img_dir=img_dir)
 
-cb_lambda = adaptive_lambda.AdaptiveLambda()
+cb_lambda = AdaptiveLambda()
 
-optimizer = Optimizer('Adam', {'lr': 5e-4})
+optimizer = Optimizer(model=net, optimizer_type='Adam', learning_rate= 5e-4)
 
 start = time.time()
 
-model.train(optimizer, 5e6, save_model=False, callbacks=[cb_es, cb_plots, cb_lambda])
+model.train(optimizer=optimizer, epochs=5e6, save_model=False,  callbacks=[cb_es, cb_plots, cb_lambda])
 
 end = time.time()
 

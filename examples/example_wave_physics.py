@@ -15,18 +15,18 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from tedeous.data import Domain, Conditions, Equation
 from tedeous.model import Model
-from tedeous.callbacks import early_stopping, plot, cache
+from tedeous.callbacks import EarlyStopping, Plots, Cache
 from tedeous.optimizers.optimizer import Optimizer
 from tedeous.device import solver_device
+
+solver_device('cuda')
+
 """
 Preparing grid
 
 Grid is an essentially torch.Tensor  of a n-D points where n is the problem
 dimensionality
 """
-
-solver_device('gpu')
-
 
 def func(grid):
     x, t = grid[:, 0], grid[:, 1]
@@ -93,7 +93,6 @@ def wave_experiment(grid_res):
     # Boundary conditions at x=1
     boundaries.dirichlet({'x': 1, 't': [0, 1]}, value=func)
 
-
     """
     Defining wave equation
 
@@ -155,21 +154,23 @@ def wave_experiment(grid_res):
 
     start = time.time()
 
-    model =  Model(net, domain, equation, boundaries)
+    model = Model(net, domain, equation, boundaries)
 
-    model.compile("NN", lambda_operator=1, lambda_bound=100)
+    model.compile("NN", lambda_operator=1,  lambda_bound=100)
 
-    cb_es = early_stopping.EarlyStopping(eps=1e-5, randomize_parameter=1e-6, info_string_every=1000)
+    cb_es = EarlyStopping(eps=1e-5,
+                          randomize_parameter=1e-6,
+                          info_string_every=100)
 
-    cb_cache = cache.Cache(cache_verbose=True, model_randomize_parameter=1e-6)
+    cb_cache = Cache(model_randomize_parameter=1e-6)
 
-    img_dir = os.path.join(os.path.dirname( __file__ ), 'wave_img')
+    img_dir = os.path.join(os.path.dirname(__file__), 'wave_img')
 
-    cb_plots = plot.Plots(save_every=1000, print_every=None, img_dir=img_dir)
+    cb_plots = Plots(save_every=1000, print_every=None, img_dir=img_dir)
 
-    optimizer = Optimizer('Adam', {'lr': 1e-4})
+    optimizer = Optimizer(model=net, optimizer_type='Adam', learning_rate=1e-4)
 
-    model.train(optimizer, 5e6, save_model=True, callbacks=[cb_es, cb_plots, cb_cache])
+    model.train(optimizer=optimizer, epochs=5e6, save_model=True, callbacks=[cb_es, cb_plots, cb_cache])
 
     end = time.time()
 
@@ -185,6 +186,7 @@ def wave_experiment(grid_res):
     print('RMSE {}= {}'.format(grid_res, error_rmse))
 
     return exp_dict_list
+
 
 nruns = 10
 

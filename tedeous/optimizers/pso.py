@@ -7,8 +7,14 @@ from tedeous.device import device_type
 
 
 class PSO(torch.optim.Optimizer):
+    """
+    Particle Swarm Optimizer.
 
-    """Custom PSO optimizer.
+    References:
+        - Rajesh Yadav, Anubhav Anubhav.
+          "GA and PSO hybrid algorithm for ANN training with application in Medical Diagnosis."
+          In Proceedings of the Third International Conference on Intelligent Computing in Data Sciences, 2019, pp. 1-5.
+          DOI: 10.1109/ICDS47004.2019.8942375
     """
 
     def __init__(self,
@@ -93,7 +99,7 @@ class PSO(torch.optim.Optimizer):
            or model values (mat)
 
         Args:
-            vec (torch.Tensor): The particle of swarm. 
+            vec (torch.Tensor): The particle of swarm.
         """
         if not isinstance(self.params, torch.Tensor):
             vector_to_parameters(vec, self.params)
@@ -179,7 +185,8 @@ class PSO(torch.optim.Optimizer):
         return self.lr * self.m1 / torch.sqrt(self.m2) + self.epsilon
 
     def step(self, closure=None) -> torch.Tensor:
-        """ It runs ONE step on the particle swarm optimization.
+        """
+        Performs a single optimization step.
 
         Returns:
             torch.Tensor: loss value for best particle of thw swarm.

@@ -220,7 +220,7 @@ class Bounds():
 
         Args:
             grid (torch.Tensor): grid (domain discretization).
-            prepared_bconds (Union[list,dict]): prepared (after Equation class) baund-y con-s.
+            prepared_bconds (Union[list,dict]): prepared (after Equation class) bound-y con-s.
             model (Union[torch.nn.Sequential, torch.Tensor]): *mat or NN or autograd* model.
             mode (str): *mat or NN or autograd*
             weak_form (list[callable]): list with basis functions (if the form is *weak*).
@@ -265,7 +265,6 @@ class Bounds():
         Returns:
             torch.Tensor: calculated boundary condition.
         """
-
         if self.mode == 'NN' or self.mode == 'autograd':
             b_op_val = self.model(bnd)[:, var].reshape(-1, 1)
         elif self.mode == 'mat':
@@ -355,7 +354,6 @@ class Bounds():
         Returns:
             torch.Tensor: calculated operator on the boundary.
         """
-
         if bcond['type'] == 'dirichlet':
             b_op_val = self._apply_dirichlet(bcond['bnd'], bcond['var'])
         elif bcond['type'] == 'operator':
@@ -374,7 +372,7 @@ class Bounds():
         Returns:
             bval (torch.Tensor): matrix, where each column is predicted
                       boundary values of one boundary type.
-            true_bval (torch.Tensor):matrix, where each column is true
+            true_bval (torch.Tensor): matrix, where each column is true
                             boundary values of one boundary type.
             keys (list): boundary types list corresponding matrix_bval columns.
             bval_length (list): list of length of each boundary type column.
@@ -382,7 +380,6 @@ class Bounds():
 
         bval_dict = {}
         true_bval_dict = {}
-
         for bcond in self.prepared_bconds:
             try:
                 bval_dict[bcond['type']] = torch.cat((bval_dict[bcond['type']],

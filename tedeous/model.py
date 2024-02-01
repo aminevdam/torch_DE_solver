@@ -1,19 +1,22 @@
 import torch
-from typing import Union, List, Any
+from typing import Union, List
+import datetime
+import time
 
 from tedeous.data import Domain, Conditions, Equation
-from tedeous.input_preprocessing import Operator_bcond_preproc
-from tedeous.callbacks.callback_list import CallbackList
+from tedeous.input_preprocessing import InitialDataProcessor, lambda_prepare
+from tedeous.eval import Operator, Bounds
+from tedeous.points_type import Points_type
+from tedeous.utils import create_random_fn, CacheUtils
+from tedeous.callbacks import Callback, CallbackList
+from tedeous.device import check_device, solver_device, device_type
 from tedeous.solution import Solution
-from tedeous.optimizers.optimizer import Optimizer
-from tedeous.utils import CacheUtils
-from tedeous.optimizers.closure import Closure
-from tedeous.device import device_type
-import datetime
+from tedeous.optimizers import OptimizerStep, Optimizer
 
 
-class Model():
-    """class for preprocessing"""
+class Model:
+    """The model is an interface for solving equations"""
+
     def __init__(
             self,
             net: Union[torch.nn.Module, torch.Tensor],
@@ -21,6 +24,7 @@ class Model():
             equation: Equation,
             conditions: Conditions):
         """
+
         Args:
             net (Union[torch.nn.Module, torch.Tensor]): neural network or torch.Tensor for mode *mat*
             grid (Domain): object of class Domain
@@ -33,65 +37,125 @@ class Model():
         self.conditions = conditions
         self._check = None
 
-    def compile(
-            self,
-            mode: str,
-            lambda_operator: Union[List[float], float],
-            lambda_bound: Union[List[float], float],
-            normalized_loss_stop: bool = False,
-            h: float = 0.001,
-            inner_order: str = '1',
-            boundary_order: str = '2',
-            derivative_points: int = 2,
-            weak_form: List[callable] = None,
-            tol: float = 0):
-        """ Compile model for training process.
+    def _compile_nn(self, **params):
+        self.inner_order = params.get('inner_order', '1')
+        self.boundary_order = params.get('boundary_order', '2')
+        sorted_grid = Points_type(self.grid).grid_sort()
+        self.n_t = len(sorted_grid['central'][:, 0].unique())
+
+    def _compile_mat(self, **params):
+        self.n_t = self.grid.shape[1]
+
+    def _compile_autograd(self, **params):
+        self.n_t = len(self.grid[:, 0].unique())
+
+    def _prepare_operator(self, equation_cls, mode, weak_form):
+        prepared_op = equation_cls.operator_prepare()
+        self.operator = Operator(self.grid, prepared_op, self.net,
+                                 mode, weak_form, self.derivative_points)
+
+    def _prepare_boundary(self, equation_cls, mode, weak_form):
+        prepared_bcs = equation_cls.bnd_prepare()
+
+        self.boundary = Bounds(self.grid, prepared_bcs, self.net,
+                               mode, weak_form, self.derivative_points)
+
+    def _prepare_lambda(self, lambda_: tuple):
+        """
+        Prepares the lambdas to solver form.
 
         Args:
-            mode (str): *mat, NN, autograd*
-            lambda_operator (Union[List[float], float]): weight for operator term.
-            It can be float for single equation or list of float for system.
-            lambda_bound (Union[List[float], float]): weight for boundary term.
-            It can be float for all types of boundary cond-ns or list of float for every condition type.
-            normalized_loss_stop (bool, optional): loss with lambdas=1. Defaults to False.
-            h (float, optional): increment for finite-difference scheme only for *NN*. Defaults to 0.001.
-            inner_order (str, optional): order of finite-difference scheme *'1', '2'* for inner points.
-            Only for *NN*. Defaults to '1'.
-            boundary_order (str, optional): order of finite-difference scheme *'1', '2'* for boundary points.
-            Only for *NN*. Defaults to '2'.
-            derivative_points (int, optional): number of points for finite-difference scheme in *mat* mode.
-            if derivative_points=2 the central scheme are used. Defaults to 2.
-            weak_form (List[callable], optional): basis function for weak loss. Defaults to None.
-            tol (float, optional): tolerance for causual loss. Defaults to 0.
+            lambda_: tuple of lambdas, where [0] position corresponds to the operator and
+                        [1] corresponds to the boundary conditions.
+
+        """
+        with torch.no_grad():
+            op = self.operator.operator_compute()
+            bval, _, _, _ = self.boundary.apply_bcs()
+        self.lambda_operator = lambda_prepare(op, lambda_[0])
+        self.lambda_bound = lambda_prepare(bval, lambda_[1])
+
+    def _loss_parameters(self, **params):
+        """
+        Configures loss function parameters.
+
+        Args:
+            **params: tol (causal loss), weak_form (weak loss)
+
+        """
+        self.tol = params.get('tol', 0)
+        self.weak_form = params.get('weak_form', None)
+
+    def _misc_parameters(self, **params):
+        """
+        Configures miscellaneous parameters.
+
+        Args:
+            **params: lambda_operator, lambda_bound, normalized_loss_stop.
+        """
+        model_randomize_parameter = params.get('model_randomize_parameter', 0.01)
+
+        self.h = params.get('h', 0.001)
+        self._r = create_random_fn(model_randomize_parameter)
+        self.save_graph = params.get('save_graph', False)
+        self.lambda_operator = params.get('lambda_operator', 1)
+        self.lambda_bound = params.get('lambda_bound', 100)
+        self.normalized_loss_stop = params.get('normalized_loss_stop', False)
+        self.inner_order = params.get('inner_order', '1')
+        self.boundary_order = params.get('boundary_order', '2')
+        self.derivative_points = params.get('derivative_points', 2)
+        self.dtype = torch.float32
+
+    def compile(
+            self,
+            mode: str = 'autograd',
+            **params):
+        """
+        Configures the model.
+
+        Args:
+            mode: Calculation method. (e.g., "NN", "autograd", "mat").
         """
         self.mode = mode
-        self.lambda_bound = lambda_bound
-        self.lambda_operator = lambda_operator
-        self.normalized_loss_stop = normalized_loss_stop
-        self.weak_form = weak_form
+        self.device = device_type()
+        self._loss_parameters(**params)
+        self._misc_parameters(**params)
 
-        grid = self.domain.build(mode=mode)
-        dtype = grid.dtype
-        self.net.to(dtype)
+        self.grid = self.domain.build(mode=mode)
+
         variable_dict = self.domain.variable_dict
         operator = self.equation.equation_lst
         bconds = self.conditions.build(variable_dict)
 
-        self.equation_cls = Operator_bcond_preproc(grid, operator, bconds, h=h, inner_order=inner_order,
-                                                   boundary_order=boundary_order).set_strategy(mode)
-        
-        self.solution_cls = Solution(grid, self.equation_cls, self.net, mode, weak_form,
-                                     lambda_operator, lambda_bound, tol, derivative_points)
+        if mode == 'NN':
+            self._compile_nn(**params)
+        elif mode == 'autograd':
+            self._compile_autograd(**params)
+        elif mode == 'mat':
+            self._compile_mat(**params)
+
+        equation_cls = InitialDataProcessor(
+            self.grid,
+            operator,
+            bconds,
+            h=self.h,
+            inner_order=self.inner_order,
+            boundary_order=self.boundary_order).set_strategy(mode)
+
+        self.solution_cls = Solution(self.grid, equation_cls, self.net, mode, self.weak_form,
+                                     self.lambda_operator, self.lambda_bound, self.tol, self.derivative_points)
+
 
     def _model_save(
-        self,
-        save_model: bool,
-        model_name: str):
-        """ Model saving.
+            self,
+            save_model: bool,
+            model_name: str):
+        """
+        Model saving.
 
         Args:
-            save_model (bool): save model or not.
-            model_name (str): model name.
+            save_model: flag for model saving.
+            model_name: name of the model.
         """
         if save_model:
             if self.mode == 'mat':
@@ -103,68 +167,72 @@ class Model():
 
     def train(self,
               optimizer: Optimizer,
-              epochs: int,
-              info_string_every: Union[int, None] = None,
-              mixed_precision: bool = False,
+              callbacks: List[Callback],
+              epochs: Union[int, float] = 10000,
+              verbose: int = 0,
               save_model: bool = False,
               model_name: Union[str, None] = None,
-              callbacks: Union[List, None]=None):
-        """ train model.
+              print_every: Union[int, None] = None,
+              mixed_precision: bool = False) -> Union[torch.nn.Module, torch.nn.Sequential]:
+        """
+        Trains the model.
 
         Args:
-            optimizer (Optimizer): the object of Optimizer class
-            epochs (int): number of epoch for training.
-            info_string_every (Union[int, None], optional): print loss state after *info_string_every* epoch. Defaults to None.
-            mixed_precision (bool, optional): apply mixed precision for calculation. Defaults to False.
-            save_model (bool, optional): save resulting model in cache. Defaults to False.
-            model_name (Union[str, None], optional): model name. Defaults to None.
-            callbacks (Union[List, None], optional): callbacks for training process. Defaults to None.
+            print_every:
+            optimizer: optimizer for training the net.
+            callbacks: list of callbacks used for training.
+            epochs: number of epochs to train.
+            verbose: verbosity level.
+            save_model: whether to save model.
+            model_name: model name.
+            mixed_precision: mixed precision (fp16/fp32).
+
+        Returns:
+            the trained model.
         """
+        self.optimizer = optimizer.set_optimizer(self.mode)
 
-        self.t = 1
-        self.stop_training = False
+        opt_step = OptimizerStep(mixed_precision, self)
+        closure = opt_step.step()
 
-        callbacks = CallbackList(callbacks=callbacks, model=self)
-
+        callbacks = CallbackList(callbacks=callbacks, verbose=verbose, model=self)
         callbacks.on_train_begin()
 
         self.net = self.solution_cls.model
 
-        self.optimizer = optimizer.optimizer_choice(self.mode, self.net)
+        self.t = 0
+        self.stop_training = False
 
-        closure = Closure(mixed_precision, self).get_closure(optimizer.optimizer)
-
-        self.min_loss, _ = self.solution_cls.evaluate()
-
-        self.cur_loss = self.min_loss
+        loss, loss_norm = self.solution_cls.evaluate()
+        self.min_loss = loss_norm if self.normalized_loss_stop else loss
 
         print('[{}] initial (min) loss is {}'.format(
-                datetime.datetime.now(), self.min_loss.item()))
+            datetime.datetime.now(), self.min_loss.item()))
 
-        while self.t < epochs and self.stop_training == False:
+        start = time.time()
+
+        while self.t < epochs:
             callbacks.on_epoch_begin()
-
-            self.optimizer.zero_grad()
-            
-            if device_type() == 'cuda' and mixed_precision:
-                closure()
-            else:
-                self.optimizer.step(closure)
-            if optimizer.gamma is not None and self.t % optimizer.decay_every == 0:
-                optimizer.scheduler.step()
+            self.cur_loss = self.optimizer.step(closure)
 
             callbacks.on_epoch_end()
 
-            self.t += 1
-            if info_string_every is not None:
-                if self.t % info_string_every == 0:
+            if print_every is not None and verbose >= 1:
+                if self.t % print_every == 0:
                     loss = self.cur_loss.item() if isinstance(self.cur_loss, torch.Tensor) else self.cur_loss
                     info = 'Step = {} loss = {:.6f}.'.format(self.t, loss)
                     print(info)
+
+            if self.stop_training:
+                break
+
+            self.t += 1
 
         callbacks.on_train_end()
 
         self._model_save(save_model, model_name)
 
+        end = time.time()
+        print(f'[{end - start}] training time')
 
-        
+        return self.net

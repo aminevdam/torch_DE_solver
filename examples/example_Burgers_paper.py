@@ -12,13 +12,15 @@ import os
 import tensorflow as tf
 
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'TRUE'
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname( __file__ ), '..')))
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from tedeous.data import Domain, Conditions, Equation
 from tedeous.model import Model
-from tedeous.callbacks import cache, early_stopping
+from tedeous.callbacks import Cache, EarlyStopping
 from tedeous.optimizers.optimizer import Optimizer
+from tedeous.device import solver_device
 
+solver_device('cuda')
 
 def solver_burgers(grid_res, cache_flag, optimizer, iterations):
     exp_dict_list = []
@@ -81,26 +83,25 @@ def solver_burgers(grid_res, cache_flag, optimizer, iterations):
 
     model.compile('autograd', lambda_operator=1, lambda_bound=1)
 
-    cb_cache = cache.Cache(cache_verbose=False, model_randomize_parameter=1e-5)
+    cb_cache = Cache(model_randomize_parameter=1e-5)
 
-    cb_es = early_stopping.EarlyStopping(eps=1e-6,
-                                        loss_window=100,
-                                        no_improvement_patience=100,
-                                        patience=2,
-                                        randomize_parameter=1e-5,
-                                        verbose=False)
-    if cache:
+    cb_es = EarlyStopping(eps=1e-6,
+                          loss_window=100,
+                          no_improvement_patience=100,
+                          patience=2,
+                          randomize_parameter=1e-5)
+    if cache_flag:
         callbacks = [cb_cache, cb_es]
     else:
         callbacks = [cb_es]
-    
+
     if type(optimizer) is list:
         for mode in optimizer:
-            optim = Optimizer(mode, {'lr': 1e-3})
-            model.train(optim, iterations, save_model=cache_flag, callbacks=callbacks)
+            optim = Optimizer(model=net, optimizer_type=mode, learning_rate=1e-3)
+            model.train(optimizer=optim, epochs=iterations, save_model=cache_flag,  callbacks=callbacks)
     else:
-        optim = Optimizer(optimizer, {'lr': 1e-3})
-        model.train(optim, iterations, save_model=cache_flag, callbacks=callbacks)
+        optim = Optimizer(model=net, optimizer_type=optimizer, learning_rate=1e-3)
+        model.train(optimizer=optim, epochs=iterations, save_model=cache_flag,  callbacks=callbacks)
 
     end = time.time()
     time_part = end - start
@@ -112,7 +113,7 @@ def solver_burgers(grid_res, cache_flag, optimizer, iterations):
     u_exact = exact(grid1)
     error_rmse = torch.sqrt(torch.mean((u_exact - net(grid1)) ** 2))
     exp_dict_list.append({'grid_res': grid_res, 'time': time_part, 'RMSE': error_rmse.detach().numpy(),
-                           'type': 'solver_burgers', 'cache': cache_flag})
+                          'type': 'solver_burgers', 'cache': cache_flag})
 
     print('Time taken {}= {}'.format(grid_res, end - start))
     print('RMSE {}= {}'.format(grid_res, error_rmse))

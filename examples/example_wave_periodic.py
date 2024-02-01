@@ -1,4 +1,5 @@
 import torch
+import numpy as np
 import sys
 import os
 import time
@@ -8,7 +9,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname( __file__ ), '..'))
 
 from tedeous.data import Domain, Conditions, Equation
 from tedeous.model import Model
-from tedeous.callbacks import early_stopping, plot
+from tedeous.callbacks import EarlyStopping, Plots
 from tedeous.optimizers.optimizer import Optimizer
 from tedeous.device import solver_device
 
@@ -26,8 +27,8 @@ x = domain.variable_dict['x']
 func_bnd1 = lambda x: 10 ** 4 * torch.sin((1/10) * x * (x-1)) ** 2
 boundaries.dirichlet({'x': [0, 1], 't': 0}, value=func_bnd1(x))
 
+
 # du/dx (x,0) = 1e3*sin^2(x(x-1)/10)
-func_bnd2 = lambda x: 10 ** 3 * torch.sin((1/10) * x * (x-1)) ** 2
 bop2 = {
         'du/dt':
             {
@@ -37,6 +38,7 @@ bop2 = {
                 'var': 0
             }
 }
+func_bnd2 = lambda x: 10 ** 3 * torch.sin((1/10) * x * (x-1)) ** 2
 boundaries.operator({'x': [0, 1], 't': 0}, operator=bop2, value=func_bnd2(x))
 
 # u(0,t) = u(1,t)
@@ -86,21 +88,21 @@ net = torch.nn.Sequential(
 
 start = time.time()
 
-model =  Model(net, domain, equation, boundaries)
+model = Model(net, domain, equation, boundaries)
 
 model.compile("NN", lambda_operator=1, lambda_bound=1000, h=0.01)
 
-cb_es = early_stopping.EarlyStopping(eps=1e-6,
-                                     no_improvement_patience=500,
-                                     info_string_every=500)
+cb_es = EarlyStopping(eps=1e-6,
+                      no_improvement_patience=500,
+                      info_string_every=100)
 
 img_dir = os.path.join(os.path.dirname( __file__ ), 'wave_periodic_img')
 
-cb_plots = plot.Plots(save_every=500, print_every=None, img_dir=img_dir)
+cb_plots = Plots(save_every=500, print_every=None, img_dir=img_dir)
 
-optimizer = Optimizer('Adam', {'lr': 1e-2})
+optimizer = Optimizer(model=net, optimizer_type='Adam', learning_rate=1e-2)
 
-model.train(optimizer, 5e6, save_model=False, callbacks=[cb_es, cb_plots])
+model.train(optimizer=optimizer, epochs=5e6, save_model=False,  callbacks=[cb_es, cb_plots])
 
 end = time.time()
 print('Time taken 10= ', end - start)

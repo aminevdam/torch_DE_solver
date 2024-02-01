@@ -589,7 +589,7 @@ class Equation_mat(EquationMixin):
         return self.bconds
 
 
-class Operator_bcond_preproc():
+class InitialDataProcessor():
     """
     Interface for preparing equations due to chosen calculation method.
     """
