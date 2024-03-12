@@ -100,9 +100,9 @@ img_dir = os.path.join(os.path.dirname( __file__ ), 'wave_periodic_img')
 
 cb_plots = Plots(save_every=500, print_every=None, img_dir=img_dir)
 
-optimizer = Optimizer(model=net, optimizer_type='Adam', learning_rate=1e-2)
+optimizer = Optimizer(optimizer_type='Adam', learning_rate=1e-2)
 
-model.train(optimizer=optimizer, epochs=5e6, save_model=False,  callbacks=[cb_es, cb_plots])
+model.train(optimizer=optimizer, epochs=5e6, save_model=False, verbose=1, callbacks=[cb_es, cb_plots])
 
 end = time.time()
 print('Time taken 10= ', end - start)

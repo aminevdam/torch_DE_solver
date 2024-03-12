@@ -1,4 +1,4 @@
-"""module for working with interface for initialize grid, conditions and equation"""
+"""module for working with inerface for initialize grid, conditions and equation"""
 
 from typing import List, Union
 import torch
@@ -35,7 +35,7 @@ class Domain():
     def __init__(self, type='uniform'):
         self.type = type
         self.variable_dict = {}
-    
+
     def variable(
             self,
             variable_name: str,
@@ -63,7 +63,7 @@ class Domain():
                 start, end = variable_set
                 variable_tensor = torch.linspace(start, end, n_points, dtype=dtype)
                 self.variable_dict[variable_name] = variable_tensor
-    
+
     def build(self, mode: str) -> torch.Tensor:
         """ building the grid for algorithm
 
@@ -85,7 +85,11 @@ class Domain():
             grid = check_device(torch.tensor(np.array(grid)))
 
         return grid
-
+    def __len__(self):
+        len_overall = 1
+        for variable in self.variable_dict:
+            len_overall *= len(self.variable_dict[variable])
+        return len_overall
 
 class Conditions():
     """class for adding the conditions: initial, boundary, and data.

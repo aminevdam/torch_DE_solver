@@ -1,13 +1,15 @@
 import torch
-from typing import Union
+from abc import ABC
+from typing import Union, Any
 from tedeous.optimizers.pso import PSO
+from torch.optim.lr_scheduler import ExponentialLR
+
 
 class Optimizer:
     """
     Setting the optimizer for the model.
     """
     def __init__(self,
-                 model: Union[torch.nn.Sequential, torch.nn.Module, torch.Tensor],
                  optimizer_type: str = 'Adam',
                  learning_rate: float = 1e-3,
                  **params):
@@ -19,18 +21,29 @@ class Optimizer:
             while moving toward a minimum of a loss function.
             **params: additional parameters for the optimizer (e.g. ZO parameters, beta parameters for Adam).
         """
-        self.model = model
         self.optimizer_type = optimizer_type
         self.learning_rate = learning_rate
         self.params = params
 
-    def _optimizer_choice(self):
-        """
-        Managing the optimizer choice.
+    def set_optimizer(
+            self,
+            mode,
+            model) -> \
+            Union[torch.optim.Adam, torch.optim.SGD, torch.optim.LBFGS, PSO]:
+        """ Setting optimizer. If optimizer is string type, it will get default settings,
+            or it may be custom optimizer defined by user.
+
+        Args:
+           optimizer: optimizer choice (Adam, SGD, LBFGS, PSO).
+           learning_rate: determines the step size at each iteration
+           while moving toward a minimum of a loss function.
 
         Returns:
-            optimizer: ready optimizer.
+            optimzer: ready optimizer.
         """
+        if not isinstance(self.optimizer_type, str):
+            return self.optimizer_type
+
         if self.optimizer_type == 'Adam':
             torch_optim = torch.optim.Adam
         elif self.optimizer_type == 'SGD':
@@ -40,18 +53,9 @@ class Optimizer:
         elif self.optimizer_type == 'PSO':
             torch_optim = PSO
 
-        return torch_optim
-
-    def set_optimizer(self, mode):
-        """
-        Setting optimizer.
-
-       Returns:
-           optimizer: ready optimizer.
-       """
-        optimizer = self._optimizer_choice()
         if mode in ('NN', 'autograd'):
-            optimizer = optimizer(self.model.parameters(), lr=self.learning_rate, **self.params)
+            optimizer = torch_optim(model.parameters(), **self.params)
         elif mode == 'mat':
-            optimizer = optimizer([self.model.requires_grad_()], lr=self.learning_rate, **self.params)
+            optimizer = torch_optim([model.requires_grad_()], **self.params)
+
         return optimizer

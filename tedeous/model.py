@@ -167,7 +167,7 @@ class Model:
 
     def train(self,
               optimizer: Optimizer,
-              callbacks: List[Callback],
+              callbacks: List[Callback] = None,
               epochs: Union[int, float] = 10000,
               verbose: int = 0,
               save_model: bool = False,
@@ -190,7 +190,7 @@ class Model:
         Returns:
             the trained model.
         """
-        self.optimizer = optimizer.set_optimizer(self.mode)
+        self.optimizer = optimizer.set_optimizer(self.mode, self.net)
 
         opt_step = OptimizerStep(mixed_precision, self)
         closure = opt_step.step()
